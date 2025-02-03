@@ -9,7 +9,7 @@ const WalletTransactions = new mongoose.Schema({
         required: true
     },
     stock_tx_id: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: ObjectId,
         ref: "Stock_Tx",
         required: false
     },
@@ -18,7 +18,7 @@ const WalletTransactions = new mongoose.Schema({
         required: true
     },
     amount: {
-        type: mongoose.Types.Decimal128,
+        type: Number,
         required: true
     },
     time_stamp: {
