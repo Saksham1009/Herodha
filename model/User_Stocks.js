@@ -17,7 +17,7 @@ const UserStocksSchema = new mongoose.Schema({
 
     quantity_owned: {
         type: Number, 
-        required: true, 
+        required: true,
         min: 0
     }, 
 
