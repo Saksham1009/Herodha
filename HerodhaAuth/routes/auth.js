@@ -1,14 +1,14 @@
 const express = require('express');
 const app = express();
 const jwt = require('jsonwebtoken');
-const User = require('../model/User');
+const User = require('./../../model/User');
 
 app.use(express.json());
 
 const router = express.Router();
 
 router.post('/register', async (req, res) => {
-    const username = req.body.username;
+    const username = req.body.user_name;
     const name = req.body.name;
     const password = req.body.password;
 
@@ -33,7 +33,7 @@ router.post('/register', async (req, res) => {
         }
 
         user = new User({
-            username: username,
+            user_name: username,
             name: name
         });
 
