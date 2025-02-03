@@ -35,7 +35,7 @@ const StockTxCollection = new mongoose.Schema({
         required: false
     },
     order_status: {
-        type: Enumerator('IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'PARTIALLY_COMPLETED'),
+        type: Enumerator('IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'PARTIALLY_COMPLETE'),
         required: true
     },
     wallet_tx_id: {
