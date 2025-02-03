@@ -1,12 +1,10 @@
 const mongoose = require('mongoose');
 
-const StockSchema = new mongoose.Schema({
-
+const StockCollection = new mongoose.Schema({
     stock_name: {
         type: String, 
         required: true
-    }, 
-
+    },
     time_stamp: { 
         type: Date, 
         required: true, 
@@ -14,4 +12,4 @@ const StockSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Stock', StockSchema);
+module.exports = mongoose.model('Stock', StockCollection);
