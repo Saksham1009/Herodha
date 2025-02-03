@@ -24,7 +24,7 @@ const WalletTxCollection = new mongoose.Schema({
     time_stamp: {
         type: Date,
         required: true,
-        default: Date.now
+        default: Date.now()
     }
 });
 

@@ -20,7 +20,7 @@ const UserStocksCollection = new mongoose.Schema({
     updated_at: {
         type: Date, 
         required: true, 
-        default: Date.now
+        default: Date.now()
     }
 });
 
