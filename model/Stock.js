@@ -7,7 +7,7 @@ const StockSchema = new mongoose.Schema({
         required: true
     }, 
 
-    created_at: { 
+    time_stamp: { 
         type: Date, 
         required: true, 
         default: Date.now

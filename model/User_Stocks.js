@@ -1,16 +1,16 @@
 const mongoose = require('mongoose');
-
+const ObjectId = mongoose.Schema.Types.ObjectId;
 
 const UserStocksSchema = new mongoose.Schema({
 
     stock_id: {
-        type: mongoose.Schema.Types.ObjectId, //references '_id' of Stock
+        type: ObjectId, //references '_id' of Stock
         ref: 'Stock',
         required: true
     },
 
     user_id: {
-        type: mongoose.Schema.Types.ObjectId, //references '_id' of User
+        type: ObjectId, //references '_id' of User
         ref: 'User', 
         required: true
     }, 
