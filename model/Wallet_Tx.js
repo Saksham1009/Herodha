@@ -1,8 +1,10 @@
 const mongoose = require('mongoose');
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
 
 const WalletTransactions = new mongoose.Schema({
     user_id: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: ObjectId,
         ref: "User",
         required: true
     },
@@ -19,10 +21,10 @@ const WalletTransactions = new mongoose.Schema({
         type: mongoose.Types.Decimal128,
         required: true
     },
-    timestamp: {
+    time_stamp: {
         type: Date,
+        required: true,
         default: Date.now,
-        required: true
     }
 });
 
