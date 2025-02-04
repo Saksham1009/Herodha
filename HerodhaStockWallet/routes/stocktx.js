@@ -1,6 +1,5 @@
 const express = require('express');
 const app = express();
-const JWT = require('jsonwebtoken');
 const StockTx = require('./../../model/Stock_Tx');
 
 app.use(express.json());
@@ -29,8 +28,7 @@ class StockTxResponse {
 
 router.post('/', async (req, res) => {
     try {
-        const decoded = JWT.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.userId;
+        const userId = req.user.userId;
 
         const userStockTx = await StockTx.find({ user_id: userId });
 

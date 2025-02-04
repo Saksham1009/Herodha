@@ -1,6 +1,5 @@
 const express = require('express');
 const app = express();
-const JWT = require('jsonwebtoken');
 const UserStocks = require('./../../model/User_Stocks');
 
 app.use(express.json());
@@ -21,12 +20,8 @@ class PortfolioResponse {
 
 
 router.post('/', async (req, res) => {
-    const token = req.headers.authorization.split(' ')[1];
-    // const token = req.headers.token; // confirm this with Pratik bhaiya
-
     try {
-        const decoded = JWT.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.userId;
+        const userId = req.user.userId;
 
         const userOwnedStocks = await UserStocks.find({ user_id: userId });
 

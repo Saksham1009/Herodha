@@ -1,6 +1,5 @@
 const express = require('express');
 const app = express();
-const JWT = require('jsonwebtoken');
 const User = require('./../../model/User');
 
 app.use(express.json());
@@ -9,8 +8,7 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
     try {
-        const decoded = JWT.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.userId;
+        const userId = req.user.userId;
 
         const user = await User.findById(userId);
 
