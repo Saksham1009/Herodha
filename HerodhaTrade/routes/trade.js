@@ -52,12 +52,13 @@ router.post('/placeStockOrder', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Insufficient funds' });
         }
 
-        if (!is_buy && user.stocks[stock_id] < quantity) {
-            return res.status(400).json({ success: false, message: 'Insufficient stock quantity' });
-        }
+        // if (!is_buy && user.stocks[stock_id] < quantity) {
+        //     return res.status(400).json({ success: false, message: 'Insufficient stock quantity' });
+        // } 
+        // need to do this in matching engine
 
-        if (order_type === 'MARKET' && price !== null) {
-            return res.status(400).json({ success: false, message: 'Price should be null for market orders' });
+        if (order_type === 'MARKET') {
+            price = null; // Ignore the price field for market orders
         }
 
         const newTransaction = new Stock_Tx({
@@ -72,8 +73,7 @@ router.post('/placeStockOrder', async (req, res) => {
         });
 
         await newTransaction.save();
-        // sendToMatchingEngine(newTransaction); // Send to matching engine
-
+        
         res.json({ success: true, data: null });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
