@@ -7,6 +7,10 @@ const UserStocksCollection = new mongoose.Schema({
         ref: 'Stock',
         required: true
     },
+    stock_name: {
+        type: String,
+        required: true
+    },
     user_id: {
         type: ObjectId, //references '_id' of User
         ref: 'User', 
