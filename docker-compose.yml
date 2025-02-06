@@ -1,0 +1,82 @@
+services:
+  mongo:
+    image: mongo
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    networks:
+      - inter-service-network
+    volumes:
+      - mongodb_data:/data/db
+  herodha_admin:
+    build: 
+      context: ./HerodhaAdmin
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./config:/app/config
+      - ./model:/app/model
+    networks:
+      - inter-service-network
+    depends_on:
+      - mongo
+
+  herodha_auth:
+    build:
+      context: ./HerodhaAuth
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config:/app/config
+      - ./model:/app/model
+    networks:
+      - inter-service-network
+    depends_on:
+      - mongo
+
+  herodha_stockwallet:
+    build:
+      context: ./HerodhaStockWallet
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./config:/app/config
+      - ./model:/app/model
+    networks:
+      - inter-service-network
+    depends_on:
+      - mongo
+
+  herodha_trade:
+    build:
+      context: ./HerodhaTrade
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./config:/app/config
+      - ./model:/app/model
+    networks:
+      - inter-service-network
+    depends_on:
+      - mongo
+
+  nginx:
+    build:
+      context: ./nginx
+    ports:
+      - "8080:8080"
+    depends_on:
+      - herodha_admin
+      - herodha_auth
+      - herodha_stockwallet
+      - herodha_trade
+      
+    networks:
+      - inter-service-network
+
+networks:
+  inter-service-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:

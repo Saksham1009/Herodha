@@ -1,14 +1,24 @@
 const express = require('express');
 const app = express();
-const User = require('./../../model/User');
+const jwt = require('jsonwebtoken');
+const User = require('./../model/User');
 
 app.use(express.json());
 
 const router = express.Router();
 
+const extractCredentials = (req) => {
+    const token = req.header('Authorization');
+    if (!token) {
+        return null;
+    }
+    const decoded = jwt.decode(token.split(' ')[1]);
+    return decoded;
+}
+
 router.post('/', async (req, res) => {
     try {
-        const userId = req.user.userId;
+        const userId = extractCredentials(req).userId;
 
         const user = await User.findById(userId);
 

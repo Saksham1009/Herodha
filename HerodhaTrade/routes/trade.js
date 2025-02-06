@@ -1,20 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const Stock = require('./../../model/Stock');
-const Stock_Tx = require('./../../model/Stock_Tx');
-const User = require('./../../model/User');
+const Stock = require('./../model/Stock');
+const Stock_Tx = require('./../model/Stock_Tx');
+const User = require('./../model/User');
+const jwt = require('jsonwebtoken');
+
+const extractCredentials = (req) => {
+    const token = req.header('Authorization');
+    if (!token) {
+        return null;
+    }
+    const decoded = jwt.decode(token.split(' ')[1]);
+    return decoded;
+}
 
 //GET /getStockPrices 
 // but need this from matching engine queue
 router.get('/getStockPrices', async (req, res) => { 
     try {
         const stock = await Stock.find();
-        res.status(200).json({
+        return res.status(200).json({
             "success": true,
             "data": stock
         });
     } catch (error) {
-        res.status(500).json({
+        returnres.status(500).json({
             "success": false,
             "data": {
                 "error": "There seems to be an error" + error
@@ -26,7 +36,7 @@ router.get('/getStockPrices', async (req, res) => {
 //POST /placeStockOrder (Market or Limit)
 router.post('/placeStockOrder', async (req, res) => {
     const { stock_id, is_buy, order_type, quantity, price } = req.body;
-    const user_id = req.user.userId; // From token
+    const user_id = extractCredentials(req).userId; // From token
 
     if (!stock_id || !order_type || !quantity || (order_type === 'LIMIT' && price == null)) {
         return res.status(400).json({
@@ -74,16 +84,16 @@ router.post('/placeStockOrder', async (req, res) => {
 
         await newTransaction.save();
         
-        res.json({ success: true, data: null });
+        return res.json({ success: true, data: null });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        return res.status(500).json({ success: false, message: err.message });
     }
 });
 
 //POST /cancelStockTransaction
 router.post('/cancelStockTransaction', async (req, res) => {
     const { stock_tx_id } = req.body;
-    const user_id = req.user.userId; // From token
+    const user_id = extractCredentials(req).userId; // From token
 
     try {
         const transaction = await Stock_Tx.findById(stock_tx_id);
@@ -102,9 +112,9 @@ router.post('/cancelStockTransaction', async (req, res) => {
         await transaction.save();
         // refundWalletOrStock(transaction); // Refund wallet or stock
 
-        res.json({ success: true, data: null });
+        return res.json({ success: true, data: null });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        return res.status(500).json({ success: false, message: err.message });
     }
 });
 
