@@ -3,6 +3,7 @@ const router = express.Router();
 const Stock = require('./../../model/Stock');
 const Stock_Tx = require('./../../model/Stock_Tx');
 const User = require('./../../model/User');
+const { sendOrderToQueue } = require('./../queue/producer');
 
 //GET /getStockPrices 
 // but need this from matching engine queue
@@ -57,7 +58,7 @@ router.post('/placeStockOrder', async (req, res) => {
         // } 
         // need to do this in matching engine
 
-        if (order_type === 'MARKET') {
+        if (order_type === 'MARKET' ) { //ask, jane de ke nahi?
             price = null; // Ignore the price field for market orders
         }
 
@@ -71,8 +72,13 @@ router.post('/placeStockOrder', async (req, res) => {
             order_status: 'IN_PROGRESS',
             time_stamp: new Date()
         });
+        //push this to queue (matching engine)
+        //object with info about stock transaction
 
         await newTransaction.save();
+
+        // Send the order to RabbitMQ
+        await sendOrderToQueue(newTransaction);
         
         res.json({ success: true, data: null });
     } catch (err) {
