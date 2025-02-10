@@ -28,4 +28,4 @@ const WalletTxCollection = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.Model('Wallet_Tx', WalletTxCollection);
+module.exports = mongoose.model('Wallet_Tx', WalletTxCollection);

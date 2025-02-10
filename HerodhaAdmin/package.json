@@ -1,7 +1,6 @@
 {
-  "name": "herodhaauth",
+  "name": "herodhaadmin",
   "version": "1.0.0",
-  "description": "This is the authentication service for the Herodha Daytrading platform",
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
@@ -11,8 +10,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "description": "",
   "dependencies": {
-    "crypto": "^1.0.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
