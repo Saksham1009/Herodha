@@ -1,5 +1,6 @@
 const amqp = require('amqplib');
 const dotenv = require('dotenv');
+const { processOrder } = require('./../../Matching engine/MatchingEngine.js'); // Import the matching engine
 dotenv.config();
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost';
@@ -32,15 +33,6 @@ async function startConsumer() {
   } catch (err) {
     console.error('Error consuming orders from queue:', err);
   }
-}
-
-//NEED TO DO THIS IN MATCHING ENGINE
-// also need to start the consumer when matching engine starts: so server.js of Matching engine
-
-// Function to process the order (to be implemented in the matching engine)
-function processOrder(order) {
-  console.log('Processing order:', order);
-
 }
 
 module.exports = { startConsumer };
