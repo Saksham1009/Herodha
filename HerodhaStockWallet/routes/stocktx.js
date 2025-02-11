@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
-const StockTx = require('./../../model/Stock_Tx');
+const jwt = require('jsonwebtoken');
+const StockTx = require('./../model/Stock_Tx');
 
 app.use(express.json());
 
@@ -26,9 +27,18 @@ class StockTxResponse {
     }
 }
 
+const extractCredentials = (req) => {
+    const token = req.header('Authorization');
+    if (!token) {
+        return null;
+    }
+    const decoded = jwt.decode(token.split(' ')[1]);
+    return decoded;
+}
+
 router.post('/', async (req, res) => {
     try {
-        const userId = req.user.userId;
+        const userId = extractCredentials(req).userId;
 
         const userStockTx = await StockTx.find({ user_id: userId });
 
@@ -44,12 +54,12 @@ router.post('/', async (req, res) => {
             );
         });
 
-        res.status(200).json({
+        return res.status(200).json({
             "success": true,
             "data": response
         });
     } catch (error) {
-        res.status(401).json({
+        return res.status(401).json({
             "success": false,
             "data": {
                 "error": "There seems to be an error " + error

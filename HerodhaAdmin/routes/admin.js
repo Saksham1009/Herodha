@@ -1,11 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const Stock = require('./../../model/Stock');
-const User_Stocks = require('./../../model/User_Stocks');
-const User = require('./../../model/User'); 
+const Stock = require('./../model/Stock');
+const User_Stocks = require('./../model/User_Stocks');
+const User = require('./../model/User'); 
+const jwt = require('jsonwebtoken');
 
 const app = express();
 app.use(express.json());
+
+// Extract Credentials
+const extractCredentials = (req) => {
+    const token = req.header('Authorization');
+    if (!token) {
+        return null;
+    }
+    const decoded = jwt.decode(token.split(' ')[1]);
+    return decoded;
+}
 
 // Create a stock
 router.post('/createStock', async (req, res) => {
@@ -17,14 +28,14 @@ router.post('/createStock', async (req, res) => {
     try {
         const newStock = await stock.save();
         // Return success response with `stock_id`
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             data: {
                 stock_id: newStock._id // using MongoDB's default '_id'
             }
         });  
     } catch (err) {
-        res.status(400).json({ message: err.message });
+        return res.status(400).json({ message: err.message });
     }
 });
 
@@ -35,9 +46,11 @@ router.post('/addStockToUser', async (req, res) => {
 
     try {
         const stock_id = req.body.stock_id;
-        const quantity = req.body.quantity;
+        const quantity = Number(req.body.quantity);
 
-        const userId = req.user.userId; // extracts the userId from the token payload
+        const credentials = extractCredentials(req);
+
+        const userId = credentials["userId"]; // extracts the userId from the token payload
 
         // check if stock exists 
         const stock = await Stock.findById(stock_id);
@@ -57,18 +70,18 @@ router.post('/addStockToUser', async (req, res) => {
             // create new user stock entry
             userStock = new User_Stocks({
                 user_id: userId, 
-                stock_id, 
+                stock_name: stock.stock_name,
+                stock_id: stock_id, 
                 quantity_owned: quantity
             });
         }
-
         
         await userStock.save(); // automatically updates created_at and updated_at with date.now time
         // returns success response
-        res.status(201).json({success: true, data: null});
+        return res.status(201).json({success: true, data: null});
     } catch (err){
         console.error("Error adding stock to user", err);
-        res.status(500).json({success: false, message: "Internal Server Error"});
+        return res.status(500).json({success: false, message: err});
     }
 
 });
@@ -78,14 +91,16 @@ router.post('/addStockToUser', async (req, res) => {
 router.post('/addMoneyToWallet', async (req, res) => {
     try {
 
-        const amount = req.body.amount;
+        const amount = Number(req.body.amount);
 
         // Validate if amount entered in valid
         if (amount === undefined || amount <= 0) {
             return res.status(400).json({ success: false, message: "Amount must be a positive number" });
         }
 
-        const username = req.user.username; // Extract username from token payload
+        const credentials = extractCredentials(req);
+
+        const username = credentials.username; // Extract username from token payload
 
         const user = await User.findOne({ user_name: username }); // // Find the user by username
         if (!user) {
@@ -97,11 +112,10 @@ router.post('/addMoneyToWallet', async (req, res) => {
         await user.save();
 
         // Return success response
-        res.status(201).json({ success: true, data: null });
-
+        return res.status(201).json({ success: true, data: null });
     } catch (err) {
         console.error("Error adding money to wallet:", err);
-        res.status(500).json({ success: false, message: "Internal Server Error" });
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 });
 
