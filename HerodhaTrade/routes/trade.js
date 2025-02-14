@@ -4,6 +4,7 @@ const Stock = require('./../model/Stock');
 const Stock_Tx = require('./../model/Stock_Tx');
 const User = require('./../model/User');
 const jwt = require('jsonwebtoken');
+const amqp = require('amqplib');
 
 const extractCredentials = (req) => {
     const token = req.header('Authorization');
@@ -84,7 +85,7 @@ router.post('/placeStockOrder', async (req, res) => {
         //push this to queue (matching engine)
         //object with info about stock transaction
 
-        await newTransaction.save();
+        // await newTransaction.save();
 
         // Send the order to RabbitMQ
         await sendOrderToQueue(newTransaction);
@@ -94,6 +95,18 @@ router.post('/placeStockOrder', async (req, res) => {
         return res.status(500).json({ success: false, message: err.message });
     }
 });
+
+async function sendOrderToQueue(order) {
+    const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://rabbitmq';
+    const connection = await amqp.connect(RABBITMQ_URL);
+    const channel = await connection.createChannel();
+    await channel.assertQueue('order_queue', { durable: true });
+
+    channel.sendToQueue('order_queue', Buffer.from(JSON.stringify(order)), { persistent: true });
+
+    console.log(`Order sent: ${JSON.stringify(order)}`);
+    setTimeout(() => connection.close(), 500);
+}
 
 //POST /cancelStockTransaction
 router.post('/cancelStockTransaction', async (req, res) => {
