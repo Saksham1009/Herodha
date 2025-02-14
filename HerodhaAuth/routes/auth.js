@@ -1,11 +1,19 @@
 const express = require('express');
 const app = express();
 const jwt = require('jsonwebtoken');
-const User = require('./../../model/User');
+const User = require('./../model/User');
+const verifyToken = require('../JWTmiddleware');
 
 app.use(express.json());
 
 const router = express.Router();
+
+router.get('/verify-token', verifyToken, (req, res) => {
+    res.status(200).json({
+        "success": true,
+        "data": null
+    });
+});
 
 router.post('/register', async (req, res) => {
     const username = req.body.user_name;
@@ -13,7 +21,7 @@ router.post('/register', async (req, res) => {
     const password = req.body.password;
 
     if (!username || !name || !password) {
-        res.status(400).json({
+        return res.status(400).json({
             "success": false,
             "data": {
                 "error": "Please provide all the required fields"
@@ -24,7 +32,7 @@ router.post('/register', async (req, res) => {
     try {
         let user = await User.findOne({ username: username });
         if (user) {
-            res.status(400).json({
+            return res.status(400).json({
                 "success": false,
                 "data": {
                     "error": "User with this username already exists"
@@ -41,12 +49,12 @@ router.post('/register', async (req, res) => {
 
         await user.save();
 
-        res.status(200).json({
+        return res.status(200).json({
             "success": true,
             "data": null
         });
     } catch (error) {
-        res.status(500).json({
+        return res.status(500).json({
             "success": false,
             "data": {
                 "error": "There seems to be an error" + error
@@ -58,11 +66,11 @@ router.post('/register', async (req, res) => {
 // Still need ot implement the code to refresh the token after expiry or do we not need that???
 
 router.post('/login', async (req, res) => {
-    const username = req.body.username;
+    const username = req.body.user_name;
     const password = req.body.password;
 
     try {
-        const user = await User.findOne({ username: username });
+        const user = await User.findOne({ user_name: username });
         if (!user || !user.verifyPassword(password)) {
             return res.status(400).json({
                 "success": false,
@@ -72,15 +80,15 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        const token = jwt.sign({ userId: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRY });
-        res.json({
+        const token = jwt.sign({ userId: user._id, username: user.user_name }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRY });
+        return res.json({
             "success": true,
             "data": {
                 "token": token
             }
         });
     } catch (error) {
-        res.status(500).json({
+        return res.status(500).json({
             "success": false,
             "data": {
                 "error": "There seems to be an error" + error
