@@ -23,14 +23,24 @@ async function initRabbitMQ() {
         const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://rabbitmq';
         connection = await amqp.connect(RABBITMQ_URL);
         channel = await connection.createChannel();
-        await channel.assertQueue('order_queue', { durable: true });
+        await channel.assertQueue('buy_orders', { durable: true });
+        await channel.assertQueue('sell_orders', { durable: true });
+        await channel.assertQueue('cancel_orders', { durable: true });
         console.log('RabbitMQ connection and channel initialized');
     } catch (err) {
         console.error('Error initializing RabbitMQ:', err);
     }
 }
 
+initRabbitMQ().then(() => console.log("RabbitMQ is ready")).catch(console.error);
+
 async function sendOrderToQueue(order) {
+    console.log(channel);
+    if (!channel) {
+        console.error('RabbitMQ channel is not initialized yet.');
+        return;
+    }
+    
     if (order.is_buy && order.order_type === 'MARKET') {
         channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     } else {
@@ -43,8 +53,6 @@ async function sendCancelOrderToQueue(order) {
     channel.sendToQueue('cancel_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     console.log(`Cancel order sent: ${JSON.stringify(order)}`);
 }
-
-initRabbitMQ();
 
 // TODO: Figure out how we can get the lowest sell price for any stock from the matching engine
 router.get('/getStockPrices', async (req, res) => { 
