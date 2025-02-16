@@ -4,6 +4,7 @@ const Stock = require('./../model/Stock');
 const Stock_Tx = require('./../model/Stock_Tx');
 const User = require('./../model/User');
 const jwt = require('jsonwebtoken');
+const amqp = require('amqplib');
 
 const extractCredentials = (req) => {
     const token = req.header('Authorization');
@@ -14,8 +15,38 @@ const extractCredentials = (req) => {
     return decoded;
 }
 
-//GET /getStockPrices 
-// but need this from matching engine queue
+var connection = null;
+var channel = null;
+
+async function initRabbitMQ() {
+    try {
+        const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://rabbitmq';
+        connection = await amqp.connect(RABBITMQ_URL);
+        channel = await connection.createChannel();
+        await channel.assertQueue('order_queue', { durable: true });
+        console.log('RabbitMQ connection and channel initialized');
+    } catch (err) {
+        console.error('Error initializing RabbitMQ:', err);
+    }
+}
+
+async function sendOrderToQueue(order) {
+    if (order.is_buy && order.order_type === 'MARKET') {
+        channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
+    } else {
+        channel.sendToQueue('sell_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
+    }
+    console.log(`Order sent: ${JSON.stringify(order)}`);
+}
+
+async function sendCancelOrderToQueue(order) {
+    channel.sendToQueue('cancel_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
+    console.log(`Cancel order sent: ${JSON.stringify(order)}`);
+}
+
+initRabbitMQ();
+
+// TODO: Figure out how we can get the lowest sell price for any stock from the matching engine
 router.get('/getStockPrices', async (req, res) => { 
     try {
         const stock = await Stock.find();
@@ -33,12 +64,17 @@ router.get('/getStockPrices', async (req, res) => {
     }
 });
 
-//POST /placeStockOrder (Market or Limit)
 router.post('/placeStockOrder', async (req, res) => {
     const { stock_id, is_buy, order_type, quantity, price } = req.body;
-    const user_id = extractCredentials(req).userId; // From token
+    const user_id = extractCredentials(req).userId;
 
-    if (!stock_id || !order_type || !quantity || (order_type === 'LIMIT' && price == null)) {
+    if (
+        !stock_id ||
+        !order_type ||
+        !quantity ||
+        (is_buy === undefined || is_buy === null) ||
+        (order_type === 'LIMIT' && price == null)
+    ) {
         return res.status(400).json({
             "success": false,
             "data": {
@@ -58,36 +94,25 @@ router.post('/placeStockOrder', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Invalid user ID' });
         }
 
-        if (is_buy && user.balance < (order_type === 'MARKET' ? stock.current_price * quantity : price * quantity)) {
+        // TODO: Add a function here to get the current price of the stock from the matching engine
+        if (is_buy && order_type === 'MARKET') {
+            if (user.balance < stock.currentPrice * quantity) {
+                return res.status(400).json({ "success": false, "data": { "error" : 'Insufficient funds' }});
+            } else if (price) {
+                return res.status(400).json({ "success": false, "data": { "error" : 'Price should not be provided for market orders' }});
+            }
             return res.status(400).json({ success: false, message: 'Insufficient funds' });
         }
 
-        // if (!is_buy && user.stocks[stock_id] < quantity) {
-        //     return res.status(400).json({ success: false, message: 'Insufficient stock quantity' });
-        // } 
-        // need to do this in matching engine
-
-        if (order_type === 'MARKET' ) { //ask, jane de ke nahi?
-            price = null; // Ignore the price field for market orders
-        }
-
-        const newTransaction = new Stock_Tx({
-            stock_id,
-            user_id,
-            is_buy,
-            order_type,
-            quantity,
-            price: order_type === 'LIMIT' ? price : null,
-            order_status: 'IN_PROGRESS',
-            time_stamp: new Date()
-        });
-        //push this to queue (matching engine)
-        //object with info about stock transaction
-
-        await newTransaction.save();
-
-        // Send the order to RabbitMQ
-        await sendOrderToQueue(newTransaction);
+        const orderData = {
+            stock_id: stock_id,
+            user_id: user_id,
+            is_buy: is_buy,
+            order_type: order_type,
+            quantity: quantity,
+            price: price
+        };
+        await sendOrderToQueue(orderData);
         
         return res.json({ success: true, data: null });
     } catch (err) {
@@ -95,31 +120,24 @@ router.post('/placeStockOrder', async (req, res) => {
     }
 });
 
-//POST /cancelStockTransaction
 router.post('/cancelStockTransaction', async (req, res) => {
     const { stock_tx_id } = req.body;
-    const user_id = extractCredentials(req).userId; // From token
+    const user_id = extractCredentials(req).userId;
 
     try {
         const transaction = await Stock_Tx.findById(stock_tx_id);
         if (!transaction) {
             return res.status(404).json({ success: false, message: 'Transaction not found' });
         }
-        if(transaction.user_id.toSring() !== user_id){
+        if (transaction.user_id.toSring() !== user_id){
             return res.status(401).json({ success: false, message: 'Unauthorized action' });
         }
 
-        if (transaction.order_status !== 'IN_PROGRESS' && transaction.order_status !== 'PARTIALLY_COMPLETE') {
-            return res.status(400).json({ success: false, message: 'Transaction cannot be canceled' });
-        }
+        sendCancelOrderToQueue({ stock_tx_id: stock_tx_id });
 
-        transaction.order_status = 'CANCELLED';
-        await transaction.save();
-        // refundWalletOrStock(transaction); // Refund wallet or stock
-
-        return res.json({ success: true, data: null });
+        return res.json({ "success": true, "data": null });
     } catch (err) {
-        return res.status(500).json({ success: false, message: err.message });
+        return res.status(500).json({ "success": false, "data": {"error": err.message} });
     }
 });
 
