@@ -28,7 +28,15 @@ services:
       start_period: 5s
       timeout: 5s
 
-
+  herodha_client:
+    build:
+      context: ./client
+    ports:
+      - "3006:3006"
+    networks:
+      - inter-service-network
+    depends_on:
+      - mongo
   herodha_admin:
     build: 
       context: ./HerodhaAdmin

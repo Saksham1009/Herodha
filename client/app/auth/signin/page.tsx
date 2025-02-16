@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 
 export default function SignIn() {
   const router = useRouter();
@@ -16,6 +17,23 @@ export default function SignIn() {
     // If authentication succeeds, navigate to dashboard
     router.push("/dashboard");
   };
+
+  const handleSignIn = async () => {
+    const res = await axios.post("http://localhost:8080/auth/login", {
+      email,
+      password,
+    });
+    console.log(res);
+  };
+
+  useEffect(() => {
+    const res = axios.post("http://localhost:8080/auth/register", {
+      "user_name": "Shweta",
+      "name": "Shweta",
+      "password": 1
+    });
+    console.log(res);
+  }, []);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -54,6 +72,7 @@ export default function SignIn() {
           </div>
           <button
             type="submit"
+            onClick={handleSignIn}
             className="w-full py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
             Sign In
