@@ -1,6 +1,31 @@
 const amqp = require('amqplib');
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://rabbitmq';
 
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.use('/engine/getPrice', handler);
+
+const router = express.Router();
+
+router.post('/', (req, res) => {
+    const stock_id = req.body.stock_id;
+    const user_id = req.body.user_id;
+
+    const bestPrice = orderBook.getBestPrice(stock_id, user_id);
+    return res.status(200).json({
+        success: true,
+        data: {
+            stock_id: stock_id,
+            best_price: bestPrice
+        }
+    });
+});
+
+
+app.listen(3004);
+
 class PriorityQueue {
     constructor(comparator) {
         this.heap = [];
@@ -10,6 +35,20 @@ class PriorityQueue {
 
     peek() {
         return this.heap[0];
+    }
+
+    peekBestPrice(user_id) {
+        const bestOrder = this.heap[0];
+        if (bestOrder.user_id !== user_id) {
+            return bestOrder.price;
+        } else {
+            let i = 1;
+            while (bestOrder.user_id === user_id) {
+                bestOrder = this.heap[i];
+                i++;
+            }
+            return bestOrder.price
+        }
     }
 
     enqueue(price, order) {
@@ -100,9 +139,9 @@ class OrderBook {
         this.expiryMinutes = 15; // Orders expire after 15 minutes
     }
 
-    getBestPrice(stock_id) {
+    getBestPrice(stock_id, user_id) {
         const orderBook = this.getStockOrderBook(stock_id);
-        const bestPrice = orderBook.peek();
+        const bestPrice = orderBook.peekBestPrice(user_id);
         return bestPrice || null;
     }
 
@@ -172,11 +211,6 @@ class OrderBook {
 
     addSellOrder(order) {
         this.validateOrder(order);
-
-        // Ensure sell orders are only LIMIT orders
-        if (order.order_type !== 'LIMIT') {
-            throw new Error('Sell orders must be of type LIMIT');
-        }
 
         const orderBook = this.getStockOrderBook(order.stock_id);
         orderBook.enqueue(order.price, order);
@@ -272,8 +306,9 @@ class OrderBook {
     }
 }
 
+const orderBook = new OrderBook();
+
 async function startConsumer() {
-    const orderBook = new OrderBook();
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
     await channel.assertQueue('buy_orders', { durable: true });

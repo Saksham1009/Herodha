@@ -34,16 +34,38 @@ async function initRabbitMQ() {
 
 initRabbitMQ().then(() => console.log("RabbitMQ is ready")).catch(console.error);
 
-async function sendOrderToQueue(order) {
-    console.log(channel);
+async function sendOrderToQueue(order, bestPrice) {
     if (!channel) {
         console.error('RabbitMQ channel is not initialized yet.');
         return;
     }
     
     if (order.is_buy && order.order_type === 'MARKET') {
+        // deduct balance from user
+        const user = await User.findById(order.user_id);
+        user.balance -= (order.quantity * bestPrice);
+
+        await user.save();
+        
         channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     } else {
+        // deduct stock from user
+        const userStock = await User_Stocks.findOne({ user_id: order.user_id, stock_id: order.stock_id });
+        userStock.quantity_owned -= order.quantity;
+        await userStock.save();
+
+        // add stock tx for the sell order
+        const stockTx = new Stock_Tx({
+            stock_id: order.stock_id,
+            user_id: order.user_id,
+            order_status: 'IN_PROGRESS',
+            is_buy: false,
+            order_type: order.order_type,
+            quantity: order.quantity,
+            price: order.price
+        });
+
+        await stockTx.save();
         channel.sendToQueue('sell_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     }
     console.log(`Order sent: ${JSON.stringify(order)}`);
@@ -102,14 +124,21 @@ router.post('/placeStockOrder', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Invalid user ID' });
         }
 
-        // TODO: Add a function here to get the current price of the stock from the matching engine
+        if (!is_buy && order_type === 'LIMIT') {
+            const userStock = await User_Stocks.findOne({ user_id: user_id, stock_id: stock_id });
+            if (!userStock || userStock.quantity_owned < quantity) {
+                return res.status(400).json({ success: false, message: 'Insufficient stocks' });
+            }
+        }
+
+        const bestPrice = 0;
         if (is_buy && order_type === 'MARKET') {
-            if (user.balance < stock.currentPrice * quantity) {
+            const bestPrice = 100; // TODO: Get the best price from the matching engine
+            if (user.balance < bestPrice * quantity) {
                 return res.status(400).json({ "success": false, "data": { "error" : 'Insufficient funds' }});
             } else if (price) {
                 return res.status(400).json({ "success": false, "data": { "error" : 'Price should not be provided for market orders' }});
             }
-            return res.status(400).json({ success: false, message: 'Insufficient funds' });
         }
 
         const orderData = {
@@ -120,7 +149,7 @@ router.post('/placeStockOrder', async (req, res) => {
             quantity: quantity,
             price: price
         };
-        await sendOrderToQueue(orderData);
+        await sendOrderToQueue(orderData, bestPrice);
         
         return res.json({ success: true, data: null });
     } catch (err) {
