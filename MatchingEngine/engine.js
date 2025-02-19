@@ -133,6 +133,7 @@ class Order {
 
 class OrderBook {
     constructor() {
+        this.channel = channel;  // Channel reference for pushing cancellations and trades
         this.stockOrderBooks = new Map();
         this.orderIndex = new Map();
         this.trades = [];
@@ -184,8 +185,8 @@ class OrderBook {
             sellOrder.remaining_quantity -= matchQuantity;
 
             // Update order status
-            order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_FILLED';
-            sellOrder.order_status = sellOrder.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_FILLED';
+            order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPLETE';
+            sellOrder.order_status = sellOrder.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPLETE';
 
             // Remove completed sell order
             if (sellOrder.remaining_quantity === 0) {
@@ -204,6 +205,8 @@ class OrderBook {
         // TODO: Handle this!
         if (order.remaining_quantity > 0) {
             console.log(`Buy order partially fulfilled. Remaining quantity: ${order.remaining_quantity}`);
+            // Re-enqueue the buy order for further matching
+            // orderBook.enqueue(order.price, order); NEED TO CONFIRM, IF WE ARE DEALING WITH PARTIAL BUY ORDERS
         }
 
         return order.remaining_quantity === 0;
@@ -238,24 +241,24 @@ class OrderBook {
         }
 
         // Push the cancellation to the stock_transactions queue
-        // if (this.channel) {
-        //     const cancellation = {
-        //         stock_tx_id: orderId,
-        //         stock_id: stock_id,
-        //         user_id: user_id,
-        //         quantity: order.remaining_quantity,
-        //         price: order.price,
-        //         timestamp: Date.now(),
-        //         type: 'CANCELLED' // Indicate that this is a cancelled transaction
-        //     };
+        if (this.channel) {
+            const cancellation = {
+                stock_tx_id: orderId,
+                stock_id: stock_id,
+                user_id: user_id,
+                quantity: order.remaining_quantity,
+                price: order.price,
+                timestamp: Date.now(),
+                type: 'CANCELLED' // Indicate that this is a cancelled transaction
+            };
 
-        //     await this.channel.sendToQueue(
-        //         'stock_transactions',
-        //         Buffer.from(JSON.stringify(cancellation)),
-        //         { persistent: true }
-        //     );
-        //     console.log('Cancellation sent to stock_transactions queue:', cancellation);
-        // }
+            await this.channel.sendToQueue(
+                'stock_transactions',
+                Buffer.from(JSON.stringify(cancellation)),
+                { persistent: true }
+            );
+            console.log('Cancellation sent to stock_transactions queue:', cancellation);
+        }
 
         return true;
     }
@@ -293,14 +296,14 @@ class OrderBook {
         this.trades.push(trade);
 
         // Push the transaction to the stock_transactions queue
-        // if (this.channel) {
-        //     await this.channel.sendToQueue(
-        //         'stock_transactions',
-        //         Buffer.from(JSON.stringify(trade)),
-        //         { persistent: true }
-        //     );
-        //     console.log('Matched transaction sent to stock_transactions queue:', trade);
-        // }
+        if (this.channel) {
+            await this.channel.sendToQueue(
+                'stock_transactions',
+                Buffer.from(JSON.stringify(trade)),
+                { persistent: true }
+            );
+            console.log('Matched transaction sent to stock_transactions queue:', trade);
+        }
 
         return trade;
     }
