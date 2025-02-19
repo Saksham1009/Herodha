@@ -79,8 +79,10 @@ services:
     networks:
       - inter-service-network
     depends_on:
-      - mongo
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_started
 
   matching_engine:
     build:
@@ -109,6 +111,7 @@ services:
       - herodha_auth
       - herodha_stockwallet
       - herodha_trade
+      - matching_engine
       
     networks:
       - inter-service-network

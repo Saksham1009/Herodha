@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Stock = require('./../model/Stock');
 const Stock_Tx = require('./../model/Stock_Tx');
+const Wallet_Tx = require('./../model/Wallet_Tx');
+const User_Stocks = require('./../model/User_Stocks');
 const User = require('./../model/User');
 const jwt = require('jsonwebtoken');
 const amqp = require('amqplib');
@@ -45,7 +47,16 @@ async function sendOrderToQueue(order, bestPrice) {
         const user = await User.findById(order.user_id);
         user.balance -= (order.quantity * bestPrice);
 
+        const wallet_tx = new Wallet_Tx({
+            user_id: order.user_id,
+            amount: order.quantity * bestPrice,
+            is_debit: true,
+            stock_tx_id: null
+        });
+
+        await wallet_tx.save();
         await user.save();
+
         
         channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     } else {
@@ -62,7 +73,7 @@ async function sendOrderToQueue(order, bestPrice) {
             is_buy: false,
             order_type: order.order_type,
             quantity: order.quantity,
-            price: order.price
+            stock_price: order.price
         });
 
         await stockTx.save();
@@ -131,9 +142,9 @@ router.post('/placeStockOrder', async (req, res) => {
             }
         }
 
-        const bestPrice = 0;
+        var bestPrice = 0;
         if (is_buy && order_type === 'MARKET') {
-            const bestPrice = 100; // TODO: Get the best price from the matching engine
+            bestPrice = 100; // TODO: Get the best price from the matching engine
             if (user.balance < bestPrice * quantity) {
                 return res.status(400).json({ "success": false, "data": { "error" : 'Insufficient funds' }});
             } else if (price) {

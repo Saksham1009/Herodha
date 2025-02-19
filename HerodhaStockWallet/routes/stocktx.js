@@ -42,16 +42,19 @@ router.post('/', async (req, res) => {
 
         const userStockTx = await StockTx.find({ user_id: userId });
 
-        const response = userStockTx.map(stockTx => {
-            return new StockTxResponse(
-                stockTx._id,
-                stockTx.parent_stock_tx_id,
-                stockTx.stock_id,
-                stockTx.wallet_tx_id,
-                stockTx.order_status,
-                stockTx.is_buy,
-                stockTx.order_type
-            );
+        const response = userStockTx.map(stocktx => {
+            return {
+                "stock_tx_id": stocktx.stock_tx_id,
+                "parent_stock_tx_id": stocktx.parent_stock_tx_id,
+                "stock_id": stocktx.stock_id,
+                "wallet_tx_id": stocktx.wallet_tx_id,
+                "order_status": stocktx.order_status,
+                "is_buy": stocktx.is_buy,
+                "order_type": stocktx.order_type,
+                "stock_price": stocktx.stock_price,
+                "quantity": stocktx.quantity,
+                "time_stamp": stocktx.time_stamp
+            }
         });
 
         return res.status(200).json({

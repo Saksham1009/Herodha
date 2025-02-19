@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Stock = require('./../model/Stock');
 const User_Stocks = require('./../model/User_Stocks');
+const Wallet_Tx = require('./../model/Wallet_Tx');
 const User = require('./../model/User'); 
 const jwt = require('jsonwebtoken');
 
@@ -109,6 +110,14 @@ router.post('/addMoneyToWallet', async (req, res) => {
 
     
         user.balance += amount;  // Update the user's balance
+        const wallet_tx = new Wallet_Tx({
+            user_id: user._id,
+            stock_tx_id: null,
+            is_debit: false,
+            amount: amount
+        });
+
+        await wallet_tx.save(); // Save the wallet transaction
         await user.save();
 
         // Return success response
