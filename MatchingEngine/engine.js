@@ -13,17 +13,27 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-app.use('/engine/getPrice', (req, res) => {
-    const stock_id = req.body.stock_id;
-    const user_id = req.body.user_id;
+app.get('/engine/getPrice', (req, res) => {
+    console.log("Received request with query params:", req.query);
+    let { stock_id, user_id } = req.query;
 
-    const bestPrice = orderBook.getBestPrice(stock_id, user_id);
+    // Ensure stock_id is always an array
+    if (!Array.isArray(stock_id)) {
+        stock_id = [stock_id]; // Convert single stock_id to an array
+    }
+
+    // const bestPrice = orderBook.getBestPrice(stock_id, user_id);
+    const prices = stock_id.map(id => ({
+        stock_id: id,
+        best_price: orderBook.getBestPrice(id, user_id)
+    }));
     return res.status(200).json({
         success: true,
-        data: {
-            stock_id: stock_id,
-            best_price: bestPrice
-        }
+        // data: {
+        //     stock_id: stock_id,
+        //     best_price: bestPrice
+        // }
+        data: prices
     });
 });
 
@@ -153,7 +163,6 @@ class Order {
 
 class OrderBook {
     constructor() {
-        this.channel = channel;  // Channel reference for pushing cancellations and trades
         this.stockOrderBooks = new Map();
         this.orderIndex = new Map();
         this.trades = [];

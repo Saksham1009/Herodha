@@ -36,7 +36,7 @@ const extractCredentials = (req) => {
     return decoded;
 }
 
-router.post('/', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const userId = extractCredentials(req).userId;
 
@@ -44,10 +44,10 @@ router.post('/', async (req, res) => {
 
         const response = userStockTx.map(stocktx => {
             return {
-                "stock_tx_id": stocktx.stock_tx_id,
-                "parent_stock_tx_id": stocktx.parent_stock_tx_id,
+                "stock_tx_id": stocktx._id,
+                "parent_stock_tx_id": stocktx.parent_stock_tx_id ? stocktx.parent_stock_tx_id.toString() : null,
                 "stock_id": stocktx.stock_id,
-                "wallet_tx_id": stocktx.wallet_tx_id,
+                "wallet_tx_id": stocktx.wallet_tx_id ? stocktx.wallet_tx_id.toString() : null,
                 "order_status": stocktx.order_status,
                 "is_buy": stocktx.is_buy,
                 "order_type": stocktx.order_type,

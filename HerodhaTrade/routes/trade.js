@@ -7,6 +7,7 @@ const User_Stocks = require('./../model/User_Stocks');
 const User = require('./../model/User');
 const jwt = require('jsonwebtoken');
 const amqp = require('amqplib');
+const axios = require('axios');
 
 const extractCredentials = (req) => {
     const token = req.header('Authorization');
@@ -90,13 +91,28 @@ async function sendCancelOrderToQueue(order) {
 // TODO: Figure out how we can get the lowest sell price for any stock from the matching engine
 router.get('/getStockPrices', async (req, res) => { 
     try {
-        const stock = await Stock.find();
+        const stock = await Stock.find().select('_id stock_name').lean();
+        // Fetch prices from the matching engine
+        const stockPrices = await axios.get('http://matching_engine:3004/engine/getPrice', {
+            params: {
+                stock_id: stock.map(stockItem => stockItem._id), user_id: extractCredentials(req).userId
+            }
+        }); 
+        // Merge the stock prices with the stock data
+        const stockDataWithPrices = stock.map((stockItem) => {
+            const stockPrice = stockPrices.data.find(price => price.stock_id === stockItem._id.toString());
+            return {
+                ...stockItem,
+                price: stockPrice ? stockPrice.price : null
+            };
+        });
+
         return res.status(200).json({
             "success": true,
-            "data": stock
+            "data": stockDataWithPrices
         });
     } catch (error) {
-        returnres.status(500).json({
+        return res.status(500).json({
             "success": false,
             "data": {
                 "error": "There seems to be an error" + error
