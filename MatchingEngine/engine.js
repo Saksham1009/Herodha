@@ -15,26 +15,60 @@ app.use(express.json());
 
 app.get('/engine/getPrice', (req, res) => {
     console.log("Received request with query params:", req.query);
-    let { stock_id, user_id } = req.query;
+    let { stock_id } = req.query;
 
-    // Ensure stock_id is always an array
-    if (!Array.isArray(stock_id)) {
-        stock_id = [stock_id]; // Convert single stock_id to an array
+    try {
+        if (!stock_id) {
+            console.log("Yaha aa gaye");
+            const bestPrices = [];
+            console.log("This is the orderBook" + orderBook.stockOrderBooks);
+            orderBook.stockOrderBooks.forEach(item => {
+                const price = item.peek();
+                const order = item.getOrdersAtPrice(price)[0];
+                console.log("This is the order" + order.stock_id);
+                console.log("This is the price" + price);
+                bestPrices.push({
+                    "stock_id": order.stock_id,
+                    "best_price": price
+                });
+            });
+            console.log("This is the best prices" + bestPrices);
+            return res.status(200).json({
+                success: true,
+                data: bestPrices
+            });
+        } else {
+            console.log("vaha a a gaaya");
+            const stockBook = orderBook.stockOrderBooks.get(stock_id);
+            console.log("This is the best price" + stockBook);
+            if (!stockBook) {
+                console.log("kya hum yaha aa gaue");
+                return res.status(404).json({
+                    success: false,
+                    message: 'No sell orders found'
+                });
+            } else {
+                console.log("Inside aa gaye");
+                const price = stockBook.peek();
+                console.log("This is the price" + price);
+                const order = stockBook.getOrdersAtPrice(price)[0];
+                console.log("This is the order" + order.stock_id);
+                return res.status(200).json({
+                    success: true,
+                    data: {
+                        stock_id: order.stock_id,
+                        best_price: price
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching best price:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
-
-    // const bestPrice = orderBook.getBestPrice(stock_id, user_id);
-    const prices = stock_id.map(id => ({
-        stock_id: id,
-        best_price: orderBook.getBestPrice(id, user_id)
-    }));
-    return res.status(200).json({
-        success: true,
-        // data: {
-        //     stock_id: stock_id,
-        //     best_price: bestPrice
-        // }
-        data: prices
-    });
 });
 
 connectToDB();
@@ -193,45 +227,45 @@ class OrderBook {
         const orderBook = this.getStockOrderBook(order.stock_id);
 
         // while (order.remaining_quantity > 0 && !orderBook.isEmpty()) {
-            const bestPrice = orderBook.peek(order.user_id);
-            if (!bestPrice) throw new Error('No sell orders available');
+        const bestPrice = orderBook.peek(order.user_id);
+        if (!bestPrice) throw new Error('No sell orders available');
 
-            const sellOrders = orderBook.getOrdersAtPrice(bestPrice);
-            if (!sellOrders.length) throw new Error('No sell orders available 2');
+        const sellOrders = orderBook.getOrdersAtPrice(bestPrice);
+        if (!sellOrders.length) throw new Error('No sell orders available 2');
 
-            // Get the first valid sell order (different user)
-            const sellOrder = sellOrders.find(so => so.user_id !== order.user_id);
-            if (!sellOrder) throw new Error('No sell orders available 3');
+        // Get the first valid sell order (different user)
+        const sellOrder = sellOrders.find(so => so.user_id !== order.user_id);
+        if (!sellOrder) throw new Error('No sell orders available 3');
 
-            // For market orders, any price is acceptable
-            const matchQuantity = Math.min(order.remaining_quantity, sellOrder.remaining_quantity);
+        // For market orders, any price is acceptable
+        const matchQuantity = Math.min(order.remaining_quantity, sellOrder.remaining_quantity);
 
-            // Execute the trade
-            await this.executeTrade(order, sellOrder, matchQuantity);
+        // Execute the trade
+        await this.executeTrade(order, sellOrder, matchQuantity);
 
-            // Update quantities
-            order.remaining_quantity -= matchQuantity;
-            sellOrder.remaining_quantity -= matchQuantity;
+        // Update quantities
+        order.remaining_quantity -= matchQuantity;
+        sellOrder.remaining_quantity -= matchQuantity;
 
-            // Update order status
-            order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_FILLED';
-            sellOrder.order_status = sellOrder.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPLETE';
+        // Update order status
+        order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_FILLED';
+        sellOrder.order_status = sellOrder.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPLETE';
 
-            console.log("Yaha pohonch gaue");
+        console.log("Yaha pohonch gaue");
 
-            // Remove completed sell order
-            if (sellOrder.remaining_quantity === 0) {
-                const orders = orderBook.getOrdersAtPrice(bestPrice);
-                const index = orders.indexOf(sellOrder);
-                if (index !== -1) {
-                    orders.splice(index, 1);
-                }
-                if (orders.length === 0) {
-                    orderBook.dequeue();
-                }
+        // Remove completed sell order
+        if (sellOrder.remaining_quantity === 0) {
+            const orders = orderBook.getOrdersAtPrice(bestPrice);
+            const index = orders.indexOf(sellOrder);
+            if (index !== -1) {
+                orders.splice(index, 1);
             }
+            if (orders.length === 0) {
+                orderBook.dequeue();
+            }
+        }
 
-            console.log("Here");
+        console.log("Here");
         // }
 
         // If the buy order is not fully fulfilled, log the remaining quantity
@@ -367,7 +401,7 @@ class OrderBook {
 
             const sellUserStock = await User_Stocks.findOne({ user_id: sellOrder.user_id, stock_id: sellOrder.stock_id });
             sellUserStock.quantity_owned -= quantity;
-            
+
             console.log(stockTx);
 
             const walletTx = new Wallet_Tx({

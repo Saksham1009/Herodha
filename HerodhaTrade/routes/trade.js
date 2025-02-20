@@ -64,7 +64,11 @@ async function sendOrderToQueue(order, bestPrice) {
         // deduct stock from user
         const userStock = await User_Stocks.findOne({ user_id: order.user_id, stock_id: order.stock_id });
         userStock.quantity_owned -= order.quantity;
-        await userStock.save();
+        if (userStock.quantity_owned === 0) {
+            await User_Stocks.deleteOne({ _id: userStock._id });
+        } else {
+            await userStock.save();
+        }
 
         // add stock tx for the sell order
         const stockTx = new Stock_Tx({
@@ -91,25 +95,24 @@ async function sendCancelOrderToQueue(order) {
 // TODO: Figure out how we can get the lowest sell price for any stock from the matching engine
 router.get('/getStockPrices', async (req, res) => { 
     try {
-        const stock = await Stock.find().select('_id stock_name').lean();
         // Fetch prices from the matching engine
-        const stockPrices = await axios.get('http://matching_engine:3004/engine/getPrice', {
-            params: {
-                stock_id: stock.map(stockItem => stockItem._id), user_id: extractCredentials(req).userId
-            }
-        }); 
+        const stockPrices = await axios.get('http://matching_engine:3004/engine/getPrice'); 
         // Merge the stock prices with the stock data
-        const stockDataWithPrices = stock.map((stockItem) => {
-            const stockPrice = stockPrices.data.find(price => price.stock_id === stockItem._id.toString());
+        const stockDataPromises = stockPrices.data.data.map(async (element) => {
+            const stockDataWithPrices = await Stock.findById(element.stock_id);
+            console.log("this is the stock data with prices" + stockDataWithPrices.stock_name);
             return {
-                ...stockItem,
-                price: stockPrice ? stockPrice.price : null
+                "stock_id": element.stock_id,
+                "stock_name": stockDataWithPrices.stock_name,
+                "price": element.best_price
             };
         });
 
+        const stockData = await Promise.all(stockDataPromises);
+
         return res.status(200).json({
             "success": true,
-            "data": stockDataWithPrices
+            "data": stockData
         });
     } catch (error) {
         return res.status(500).json({
@@ -158,9 +161,16 @@ router.post('/placeStockOrder', async (req, res) => {
             }
         }
 
-        var bestPrice = 0;
+        console.log("We have reached here successfully haha");
+        var bestPrice = null;
         if (is_buy && order_type === 'MARKET') {
-            bestPrice = 100; // TODO: Get the best price from the matching engine
+            bestPrice = await axios.get('http://matching_engine:3004/engine/getPrice', {
+                params: {
+                    stock_id: stock_id
+                }
+            });
+            bestPrice = bestPrice.data.data.best_price;
+            console.log("this is the best price" + bestPrice);
             if (user.balance < bestPrice * quantity) {
                 return res.status(400).json({ "success": false, "data": { "error" : 'Insufficient funds' }});
             } else if (price) {
