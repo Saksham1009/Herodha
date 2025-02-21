@@ -44,20 +44,24 @@ async function sendOrderToQueue(order, bestPrice) {
     }
     
     if (order.is_buy && order.order_type === 'MARKET') {
+        const allStocks = await axios.get('http://matching_engine:3004/engine/getAvailableStocks', {
+            params: {
+                stock_id: order.stock_id
+            }
+        });
+        var totalQuantityNotOwn = 0;
+        allStocks.data.data.forEach((stockOrder) => {
+            if (stockOrder.user_id !== order.user_id) {
+                totalQuantityNotOwn += stockOrder.quantity;
+            }
+        });
+        if (totalQuantityNotOwn < order.quantity) {
+            return;
+        }
         // deduct balance from user
         const user = await User.findById(order.user_id);
         user.balance -= (order.quantity * bestPrice);
-
-        const wallet_tx = new Wallet_Tx({
-            user_id: order.user_id,
-            amount: order.quantity * bestPrice,
-            is_debit: true,
-            stock_tx_id: null
-        });
-
-        await wallet_tx.save();
         await user.save();
-
         
         channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     } else {
@@ -82,18 +86,27 @@ async function sendOrderToQueue(order, bestPrice) {
         });
 
         await stockTx.save();
+        order.stock_tx_id = stockTx._id.toString();
         channel.sendToQueue('sell_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     }
     console.log(`Order sent: ${JSON.stringify(order)}`);
 }
 
 async function sendCancelOrderToQueue(order) {
-    channel.sendToQueue('cancel_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
-    console.log(`Cancel order sent: ${JSON.stringify(order)}`);
+    try {
+        channel.sendToQueue(
+            'cancel_orders',
+            Buffer.from(JSON.stringify(order)),
+            { persistent: true }
+        );
+        console.log(`Cancel order sent: ${JSON.stringify(order)}`);
+    } catch (err) {
+        console.error("Failed to send cancel order to queue:", err);
+    }
 }
 
 // TODO: Figure out how we can get the lowest sell price for any stock from the matching engine
-router.get('/getStockPrices', async (req, res) => { 
+router.get('/transaction/getStockPrices', async (req, res) => { 
     try {
         // Fetch prices from the matching engine
         const stockPrices = await axios.get('http://matching_engine:3004/engine/getPrice'); 
@@ -104,7 +117,7 @@ router.get('/getStockPrices', async (req, res) => {
             return {
                 "stock_id": element.stock_id,
                 "stock_name": stockDataWithPrices.stock_name,
-                "price": element.best_price
+                "current_price": element.best_price
             };
         });
 
@@ -124,7 +137,7 @@ router.get('/getStockPrices', async (req, res) => {
     }
 });
 
-router.post('/placeStockOrder', async (req, res) => {
+router.post('/engine/placeStockOrder', async (req, res) => {
     const { stock_id, is_buy, order_type, quantity, price } = req.body;
     const user_id = extractCredentials(req).userId;
 
@@ -169,6 +182,7 @@ router.post('/placeStockOrder', async (req, res) => {
                     stock_id: stock_id
                 }
             });
+            console.log("received best price response" + bestPrice.data);
             bestPrice = bestPrice.data.data.best_price;
             console.log("this is the best price" + bestPrice);
             if (user.balance < bestPrice * quantity) {
@@ -194,9 +208,14 @@ router.post('/placeStockOrder', async (req, res) => {
     }
 });
 
-router.post('/cancelStockTransaction', async (req, res) => {
+router.post('/engine/cancelStockTransaction', async (req, res) => {
     const { stock_tx_id } = req.body;
     const user_id = extractCredentials(req).userId;
+
+    // Validate stock_tx_id format
+    if (!mongoose.Types.ObjectId.isValid(stock_tx_id)) {
+        return res.status(400).json({ success: false, message: "Invalid transaction ID" });
+    }
 
     try {
         const transaction = await Stock_Tx.findById(stock_tx_id);
@@ -206,7 +225,8 @@ router.post('/cancelStockTransaction', async (req, res) => {
         if (transaction.user_id.toString() !== user_id){
             return res.status(401).json({ success: false, message: 'Unauthorized action' });
         }
-
+        
+        console.log("Sending cancel request for transaction:", stock_tx_id);
         sendCancelOrderToQueue({ stock_tx_id: stock_tx_id });
 
         return res.json({ "success": true, "data": null });

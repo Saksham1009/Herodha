@@ -8,7 +8,7 @@ app.use(cors());
 
 connectToDB();
 
-app.use('/admin', require('./routes/admin'));
+app.use('/', require('./routes/admin'));
 
 const PORT = process.env.PORT || 3003;
 

@@ -6,8 +6,6 @@ services:
       - "27017:27017"
     networks:
       - inter-service-network
-    #volumes:
-    # - mongodb_data:/data/db
 
   rabbitmq:
     image: rabbitmq

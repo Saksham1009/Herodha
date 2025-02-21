@@ -8,7 +8,7 @@ app.use(express.json());
 
 connectToDB();
 
-app.use('/trade/', handler);
+app.use('/', handler);
 
 const PORT = process.env.PORT || 3001;
 
