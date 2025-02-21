@@ -6,8 +6,7 @@ services:
       - "27017:27017"
     networks:
       - inter-service-network
-    # volumes:
-    #   - mongodb_data:/data/db
+
   rabbitmq:
     image: rabbitmq
     container_name: rabbitmq
@@ -28,7 +27,15 @@ services:
       start_period: 5s
       timeout: 5s
 
-
+  herodha_client:
+    build:
+      context: ./client
+    ports:
+      - "3006:3006"
+    networks:
+      - inter-service-network
+    depends_on:
+      - mongo
   herodha_admin:
     build: 
       context: ./HerodhaAdmin
