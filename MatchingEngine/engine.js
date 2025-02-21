@@ -16,6 +16,9 @@ app.use(express.json());
 app.get('/engine/getAvailableStocks', async (req, res) => {
     let { stock_id } = req.query;
 
+
+    console.log("Stock ID" + req.query);
+
     try {
         let stocks = [];
         const stockList = orderBook.stockOrderBooks.get(stock_id);
@@ -214,8 +217,9 @@ class PriorityQueue {
 }
 
 class Order {
-    constructor(stock_id, user_id, is_buy, order_type, quantity, price) {
+    constructor(stock_id, user_id, is_buy, order_type, quantity, price, stock_tx_id = null) {
         this.stock_id = stock_id;
+        this.stock_tx_id = stock_tx_id;
         this.user_id = user_id;
         this.is_buy = is_buy;
         this.order_type = order_type;
@@ -277,13 +281,18 @@ class OrderBook {
 
         // Update quantities
         order.remaining_quantity -= matchQuantity;
-        sellOrder.remaining_quantity -= matchQuantity;
+        sellOrder.remaining_quantity -= matchQuantity; //change to qunatity - matched
 
         // Update order status
-        order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_FILLED';
-        sellOrder.order_status = sellOrder.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPLETE';
+        order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPELTE';
 
         console.log("Yaha pohonch gaue");
+
+        if (sellOrder.remaining_quantity === 0) {
+            const parentStockTx = await Stock_Tx.findById(sellOrder.stock_tx_id);
+            parentStockTx.order_status = 'COMPLETED';
+            await parentStockTx.save();
+        }
 
         // Remove completed sell order
         if (sellOrder.remaining_quantity === 0) {
@@ -400,12 +409,16 @@ class OrderBook {
                 quantity: quantity,
                 stock_price: sellOrder.price,
                 is_buy: false,
-                order_status: sellOrder.remaining_quantity > 0 ? 'PARTIALLY_COMPLETE' : 'COMPLETED',
-                parent_stock_tx_id: null,
+                order_status: 'COMPLETED',
+                parent_stock_tx_id: sellOrder.stock_tx_id,
                 order_type: sellOrder.order_type,
                 wallet_tx_id: null
             });
             await stockTx.save();
+
+            const parentStockTx = await Stock_Tx.findById(sellOrder.stock_tx_id);
+            parentStockTx.order_status = 'PARTIALLY_COMPLETE';
+            await parentStockTx.save();
 
             const buyOrderStockTx = new Stock_Tx({
                 stock_id: buyOrder.stock_id,
@@ -455,6 +468,9 @@ class OrderBook {
 
             buyOrderStockTx.wallet_tx_id = buyOrderWalletTx._id.toString();
             await buyOrderStockTx.save();
+
+            stockTx.wallet_tx_id = walletTx._id.toString();
+            await stockTx.save();
 
             const user = await User.findById(sellOrder.user_id);
             user.balance += (quantity * sellOrder.price);
@@ -513,7 +529,8 @@ async function startConsumer() {
                     orderData.is_buy,
                     orderData.order_type,
                     orderData.quantity,
-                    orderData.price
+                    orderData.price,
+                    orderData.stock_tx_id
                 );
                 console.log('Processing sell order:', order);
 

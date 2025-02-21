@@ -44,7 +44,11 @@ async function sendOrderToQueue(order, bestPrice) {
     }
     
     if (order.is_buy && order.order_type === 'MARKET') {
-        const allStocks = await axios.get('http://matching_engine:3004/engine/getAvailableStocks');
+        const allStocks = await axios.get('http://matching_engine:3004/engine/getAvailableStocks', {
+            params: {
+                stock_id: order.stock_id
+            }
+        });
         var totalQuantityNotOwn = 0;
         allStocks.data.data.forEach((stockOrder) => {
             if (stockOrder.user_id !== order.user_id) {
@@ -82,6 +86,7 @@ async function sendOrderToQueue(order, bestPrice) {
         });
 
         await stockTx.save();
+        order.stock_tx_id = stockTx._id.toString();
         channel.sendToQueue('sell_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     }
     console.log(`Order sent: ${JSON.stringify(order)}`);
@@ -101,7 +106,7 @@ async function sendCancelOrderToQueue(order) {
 }
 
 // TODO: Figure out how we can get the lowest sell price for any stock from the matching engine
-router.get('/getStockPrices', async (req, res) => { 
+router.get('/transaction/getStockPrices', async (req, res) => { 
     try {
         // Fetch prices from the matching engine
         const stockPrices = await axios.get('http://matching_engine:3004/engine/getPrice'); 
@@ -132,7 +137,7 @@ router.get('/getStockPrices', async (req, res) => {
     }
 });
 
-router.post('/placeStockOrder', async (req, res) => {
+router.post('/engine/placeStockOrder', async (req, res) => {
     const { stock_id, is_buy, order_type, quantity, price } = req.body;
     const user_id = extractCredentials(req).userId;
 
@@ -203,7 +208,7 @@ router.post('/placeStockOrder', async (req, res) => {
     }
 });
 
-router.post('/cancelStockTransaction', async (req, res) => {
+router.post('/engine/cancelStockTransaction', async (req, res) => {
     const { stock_tx_id } = req.body;
     const user_id = extractCredentials(req).userId;
 

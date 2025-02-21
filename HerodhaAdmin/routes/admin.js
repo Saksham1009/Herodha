@@ -19,7 +19,7 @@ const extractCredentials = (req) => {
 }
 
 // Create a stock
-router.post('/createStock', async (req, res) => {
+router.post('/setup/createStock', async (req, res) => {
 
     const stock = new Stock({
         stock_name: req.body.stock_name
@@ -42,7 +42,7 @@ router.post('/createStock', async (req, res) => {
 
 // add Stock to User
 
-router.post('/addStockToUser', async (req, res) => {
+router.post('/setup/addStockToUser', async (req, res) => {
 
     try {
         const stock_id = req.body.stock_id;
@@ -88,7 +88,7 @@ router.post('/addStockToUser', async (req, res) => {
 
 
 // Add money to wallet
-router.post('/addMoneyToWallet', async (req, res) => {
+router.post('/transaction/addMoneyToWallet', async (req, res) => {
     try {
 
         const amount = Number(req.body.amount);
