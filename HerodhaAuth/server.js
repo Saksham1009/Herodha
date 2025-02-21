@@ -8,7 +8,7 @@ app.use(express.json());
 
 connectToDB();
 
-app.use('/auth', AuthHandler);
+app.use('/', AuthHandler);
 
 const PORT = process.env.PORT || 3000;
 

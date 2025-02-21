@@ -88,8 +88,16 @@ async function sendOrderToQueue(order, bestPrice) {
 }
 
 async function sendCancelOrderToQueue(order) {
-    channel.sendToQueue('cancel_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
-    console.log(`Cancel order sent: ${JSON.stringify(order)}`);
+    try {
+        channel.sendToQueue(
+            'cancel_orders',
+            Buffer.from(JSON.stringify(order)),
+            { persistent: true }
+        );
+        console.log(`Cancel order sent: ${JSON.stringify(order)}`);
+    } catch (err) {
+        console.error("Failed to send cancel order to queue:", err);
+    }
 }
 
 // TODO: Figure out how we can get the lowest sell price for any stock from the matching engine
@@ -104,7 +112,7 @@ router.get('/getStockPrices', async (req, res) => {
             return {
                 "stock_id": element.stock_id,
                 "stock_name": stockDataWithPrices.stock_name,
-                "price": element.best_price
+                "current_price": element.best_price
             };
         });
 
@@ -169,6 +177,7 @@ router.post('/placeStockOrder', async (req, res) => {
                     stock_id: stock_id
                 }
             });
+            console.log("received best price response" + bestPrice.data);
             bestPrice = bestPrice.data.data.best_price;
             console.log("this is the best price" + bestPrice);
             if (user.balance < bestPrice * quantity) {
@@ -198,15 +207,21 @@ router.post('/cancelStockTransaction', async (req, res) => {
     const { stock_tx_id } = req.body;
     const user_id = extractCredentials(req).userId;
 
+    // Validate stock_tx_id format
+    if (!mongoose.Types.ObjectId.isValid(stock_tx_id)) {
+        return res.status(400).json({ success: false, message: "Invalid transaction ID" });
+    }
+
     try {
         const transaction = await Stock_Tx.findById(stock_tx_id);
         if (!transaction) {
             return res.status(404).json({ success: false, message: 'Transaction not found' });
         }
-        if (transaction.user_id.toSring() !== user_id){
+        if (transaction.user_id.toString() !== user_id){
             return res.status(401).json({ success: false, message: 'Unauthorized action' });
         }
-
+        
+        console.log("Sending cancel request for transaction:", stock_tx_id);
         sendCancelOrderToQueue({ stock_tx_id: stock_tx_id });
 
         return res.json({ "success": true, "data": null });

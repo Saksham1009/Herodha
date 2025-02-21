@@ -41,11 +41,11 @@ app.get('/engine/getPrice', (req, res) => {
             console.log("vaha a a gaaya");
             const stockBook = orderBook.stockOrderBooks.get(stock_id);
             console.log("This is the best price" + stockBook);
-            if (!stockBook) {
+            if (!stockBook || stockBook.isEmpty()) {
                 console.log("kya hum yaha aa gaue");
                 return res.status(404).json({
                     success: false,
-                    message: 'No sell orders found'
+                    message: 'No sell orders found for this stock'
                 });
             } else {
                 console.log("Inside aa gaye");
