@@ -26,7 +26,7 @@ export default function Dashboard() {
         }
 
         // Fetch Wallet Balance
-        const walletResponse = await axios.get("http://localhost:8080/wallet/getWalletBalance", {
+        const walletResponse = await axios.get("http://localhost:8080/transaction/getWalletBalance", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -36,7 +36,7 @@ export default function Dashboard() {
         setBalance(walletResponse.data.data.balance);
 
         // Fetch Stock Portfolio
-        const portfolioResponse = await axios.get("http://localhost:8080/stock/getStockPortfolio", {
+        const portfolioResponse = await axios.get("http://localhost:8080/transaction/getStockPortfolio", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -46,7 +46,7 @@ export default function Dashboard() {
         setPortfolio(portfolioResponse.data.data);
 
         // Fetch Stock Prices
-        const stockPricesResponse = await axios.get("http://localhost:8080/trade/getStockPrices", {
+        const stockPricesResponse = await axios.get("http://localhost:8080/transaction/getStockPrices", {
           headers: { Authorization: `Bearer ${token}` },
         });
 

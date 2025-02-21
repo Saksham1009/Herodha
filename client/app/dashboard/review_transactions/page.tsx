@@ -26,7 +26,7 @@ export default function ReviewTransactions() {
           return;
         }
 
-        const response = await axios.get("http://localhost:8080/stock/getStockTransactions", {
+        const response = await axios.get("http://localhost:8080/transaction/getStockTransactions", {
           headers: {
             Authorization: `Bearer ${token}`,
           },

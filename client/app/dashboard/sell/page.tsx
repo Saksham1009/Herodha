@@ -29,7 +29,7 @@ export default function SellStock() {
           return;
         }
 
-        const response = await axios.get("http://localhost:8080/stock/getStockPortfolio", {
+        const response = await axios.get("http://localhost:8080/transaction/getStockPortfolio", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -91,7 +91,7 @@ export default function SellStock() {
         price: sellPriceFloat,
       };
 
-      const response = await axios.post("http://localhost:8080/trade/placeStockOrder", requestBody, {
+      const response = await axios.post("http://localhost:8080/engine/placeStockOrder", requestBody, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",

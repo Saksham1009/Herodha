@@ -14,7 +14,7 @@ export default function SignIn() {
     const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         try{
-          const response = await axios.post('http://localhost:8080/auth/login', {
+          const response = await axios.post('http://localhost:8080/authentication/login', {
             user_name: userName,
             password: password
           });

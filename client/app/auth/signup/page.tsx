@@ -12,7 +12,7 @@ export default function SignUp() {
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Prevent the default form submit action
     try {
-      const response = await axios.post('http://localhost:8080/auth/register', {
+      const response = await axios.post('http://localhost:8080/authentication/register', {
         name: name,
         user_name: username,
         password: password
