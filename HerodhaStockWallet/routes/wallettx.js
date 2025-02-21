@@ -32,7 +32,7 @@ const extractCredentials = (req) => {
     return decoded;
 }
 
-router.post('/', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const userId = extractCredentials(req).userId;
 
@@ -47,7 +47,7 @@ router.post('/', async (req, res) => {
                 walletTx.time_stamp
             );
         });
-
+        
         return res.status(200).json({
             "success": true,
             "data": response

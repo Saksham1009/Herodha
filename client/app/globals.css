@@ -19,3 +19,15 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.scrollable-container {
+  max-height: 300px; /* Adjust height as needed */
+  overflow-y: auto;  /* Enables vertical scrolling */
+  overflow-x: hidden; /* Hides horizontal scrollbar */
+}
+.fixed-dimension-container {
+  height: 400px;  /* Adjust as necessary to fit your design */
+  width: 100%;    /* Maintains full width*/
+  overflow-y: auto; /* Keeps content scrollable */
+  overflow-x: hidden; /* Prevents horizontal scrolling */
+}

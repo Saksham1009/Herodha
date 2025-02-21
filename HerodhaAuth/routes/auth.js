@@ -3,7 +3,6 @@ const app = express();
 const jwt = require('jsonwebtoken');
 const User = require('./../model/User');
 const verifyToken = require('../JWTmiddleware');
-
 app.use(express.json());
 
 const router = express.Router();

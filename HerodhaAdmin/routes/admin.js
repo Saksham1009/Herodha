@@ -109,6 +109,7 @@ router.post('/addMoneyToWallet', async (req, res) => {
 
     
         user.balance += amount;  // Update the user's balance
+
         await user.save();
 
         // Return success response
