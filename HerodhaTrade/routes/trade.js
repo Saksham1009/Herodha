@@ -44,20 +44,20 @@ async function sendOrderToQueue(order, bestPrice) {
     }
     
     if (order.is_buy && order.order_type === 'MARKET') {
+        const allStocks = await axios.get('http://matching_engine:3004/engine/getAvailableStocks');
+        var totalQuantityNotOwn = 0;
+        allStocks.data.data.forEach((stockOrder) => {
+            if (stockOrder.user_id !== order.user_id) {
+                totalQuantityNotOwn += stockOrder.quantity;
+            }
+        });
+        if (totalQuantityNotOwn < order.quantity) {
+            return;
+        }
         // deduct balance from user
         const user = await User.findById(order.user_id);
         user.balance -= (order.quantity * bestPrice);
-
-        const wallet_tx = new Wallet_Tx({
-            user_id: order.user_id,
-            amount: order.quantity * bestPrice,
-            is_debit: true,
-            stock_tx_id: null
-        });
-
-        await wallet_tx.save();
         await user.save();
-
         
         channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
     } else {

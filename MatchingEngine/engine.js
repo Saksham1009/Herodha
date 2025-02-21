@@ -13,6 +13,30 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
+app.get('/engine/getAvailableStocks', async (req, res) => {
+    let { stock_id } = req.query;
+
+    try {
+        let stocks = [];
+        const stockList = orderBook.stockOrderBooks.get(stock_id);
+        stocks = stockList.getAllOrders();
+        if (!stockList || stockList.isEmpty()) {
+            return;
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: stocks
+        });
+    } catch (error) {
+        console.error('Error fetching available stocks:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 app.get('/engine/getPrice', (req, res) => {
     console.log("Received request with query params:", req.query);
     let { stock_id } = req.query;
@@ -174,6 +198,14 @@ class PriorityQueue {
             [this.heap[index], this.heap[smallest]] = [this.heap[smallest], this.heap[index]];
             index = smallest;
         }
+    }
+
+    getAllOrders() {
+        const orders = [];
+        this.heap.forEach(price => {
+            orders.push(...this.orderMap.get(price));
+        });
+        return orders;
     }
 
     getOrdersAtPrice(price) {
@@ -373,6 +405,7 @@ class OrderBook {
                 order_type: sellOrder.order_type,
                 wallet_tx_id: null
             });
+            await stockTx.save();
 
             const buyOrderStockTx = new Stock_Tx({
                 stock_id: buyOrder.stock_id,
@@ -385,6 +418,8 @@ class OrderBook {
                 order_type: buyOrder.order_type,
                 wallet_tx_id: null
             });
+            await buyOrderStockTx.save();
+
 
             var buyUserStock = await User_Stocks.findOne({ user_id: buyOrder.user_id, stock_id: buyOrder.stock_id });
             if (buyUserStock) {
@@ -398,28 +433,31 @@ class OrderBook {
                     quantity_owned: quantity
                 });
             }
-
-            const sellUserStock = await User_Stocks.findOne({ user_id: sellOrder.user_id, stock_id: sellOrder.stock_id });
-            sellUserStock.quantity_owned -= quantity;
-
-            console.log(stockTx);
+            await buyUserStock.save();
 
             const walletTx = new Wallet_Tx({
                 stock_id: sellOrder.stock_id,
                 user_id: sellOrder.user_id,
                 amount: quantity * sellOrder.price,
                 is_debit: false,
-                stock_tx_id: stockTx._id
+                stock_tx_id: stockTx._id.toString()
             });
+            await walletTx.save();
+
+            const buyOrderWalletTx = new Wallet_Tx({
+                stock_id: buyOrder.stock_id,
+                user_id: buyOrder.user_id,
+                amount: quantity * sellOrder.price,
+                is_debit: true,
+                stock_tx_id: buyOrderStockTx._id.toString()
+            });
+            await buyOrderWalletTx.save();
+
+            buyOrderStockTx.wallet_tx_id = buyOrderWalletTx._id.toString();
+            await buyOrderStockTx.save();
 
             const user = await User.findById(sellOrder.user_id);
             user.balance += (quantity * sellOrder.price);
-
-            await buyUserStock.save();
-            await sellUserStock.save();
-            await buyOrderStockTx.save();
-            await stockTx.save();
-            await walletTx.save();
             await user.save();
         } catch (error) {
             console.error('Error executing trade:', error);
