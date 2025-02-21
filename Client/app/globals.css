@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.scrollable-container {
+  max-height: 300px; /* Adjust height as needed */
+  overflow-y: auto;  /* Enables vertical scrolling */
+  overflow-x: hidden; /* Hides horizontal scrollbar */
+}
+.fixed-dimension-container {
+  height: 400px;  /* Adjust as necessary to fit your design */
+  width: 100%;    /* Maintains full width*/
+  overflow-y: auto; /* Keeps content scrollable */
+  overflow-x: hidden; /* Prevents horizontal scrolling */
+}

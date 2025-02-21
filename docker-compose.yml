@@ -29,6 +29,16 @@ services:
       timeout: 5s
 
 
+  herodha_client:
+    build:
+      context: ./Client
+    ports:
+      - "3006:3006"
+    networks:
+      - inter-service-network
+    depends_on:
+      - mongo
+  
   herodha_admin:
     build: 
       context: ./HerodhaAdmin
@@ -111,6 +121,7 @@ services:
       - herodha_auth
       - herodha_stockwallet
       - herodha_trade
+      - herodha_client
       - matching_engine
       
     networks:
