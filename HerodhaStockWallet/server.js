@@ -11,10 +11,10 @@ app.use(express.json());
 
 connectToDB();
 
-app.use('/stock/getStockPortfolio', PortfolioHandler);
-app.use('/wallet/getWalletTransactions', WalletTxHandler);
-app.use('/stock/getStockTransactions', StockTxHandler);
-app.use('/wallet/getWalletBalance', WalletBalanceHandler);
+app.use('/transaction/getStockPortfolio', PortfolioHandler);
+app.use('/transaction/getWalletTransactions', WalletTxHandler);
+app.use('/transaction/getStockTransactions', StockTxHandler);
+app.use('/transaction/getWalletBalance', WalletBalanceHandler);
 
 const PORT = process.env.PORT || 3002;
 

@@ -30,6 +30,7 @@ router.post('/register', async (req, res) => {
     }
 
     try {
+        //now this will only be a preemptive check
         let user = await User.findOne({ username: username });
         if (user) {
             return res.status(400).json({
@@ -54,12 +55,23 @@ router.post('/register', async (req, res) => {
             "data": null
         });
     } catch (error) {
-        return res.status(500).json({
-            "success": false,
-            "data": {
-                "error": "There seems to be an error" + error
-            }
-        });
+        // Handle MongoDB duplicate key error
+        if (error.name === 'MongoServerError' && error.code === 11000) {
+            return res.status(400).json({
+                "success": false,
+                "data": {
+                    "error": "User with this username already exists"
+                }
+            });
+        } else {
+            // Handle other errors
+            return res.status(500).json({
+                "success": false,
+                "data": {
+                    "error": "There seems to be an error: " + error.message
+                }
+            });
+        }
     }
 });
 

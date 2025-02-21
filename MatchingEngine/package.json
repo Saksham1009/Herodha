@@ -4,6 +4,7 @@
   "description": "",
   "main": "engine.js",
   "scripts": {
+    "dev": "node engine.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,6 +13,7 @@
   "dependencies": {
     "amqplib": "^0.10.5",
     "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "mongoose": "^8.10.0"
   }
 }

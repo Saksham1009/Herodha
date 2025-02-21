@@ -16,7 +16,7 @@ const extractCredentials = (req) => {
     return decoded;
 }
 
-router.post('/', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const userId = extractCredentials(req).userId;
 
