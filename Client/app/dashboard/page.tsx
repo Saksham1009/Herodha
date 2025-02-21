@@ -24,7 +24,7 @@ export default function Dashboard() {
           setLoading(false);
           return;
         }
-
+        console.log(token);
         // Fetch Wallet Balance
         const walletResponse = await axios.get("http://localhost:8080/transaction/getWalletBalance", {
           headers: { Authorization: `Bearer ${token}` },
@@ -33,6 +33,7 @@ export default function Dashboard() {
         if (!walletResponse.data.success) {
           throw new Error("Failed to fetch wallet balance.");
         }
+
         setBalance(walletResponse.data.data.balance);
 
         // Fetch Stock Portfolio

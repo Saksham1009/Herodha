@@ -22,6 +22,13 @@ router.get('/', async (req, res) => {
 
         const user = await User.findById(userId);
 
+        if (!user || user.balance === undefined) {
+            return res.status(200).json({
+              success: true,
+              data: { balance: 0 }, // Prevent frontend from crashing
+            });
+          }
+
         return res.status(200).json({
             "success": true,
             "data": {
