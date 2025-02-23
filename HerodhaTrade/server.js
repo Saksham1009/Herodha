@@ -4,8 +4,6 @@ const connectToDB = require('./config/dbConnect');
 const handler = require('./routes/trade.js');
 const app = express();
 
-const cors = require('cors');
-app.use(cors());
 
 app.use(express.json());
 

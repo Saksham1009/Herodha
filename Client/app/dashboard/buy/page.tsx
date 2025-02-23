@@ -28,7 +28,7 @@ export default function BuyStock() {
 
         // Fetch stock prices to get stock_id
         const stockPricesResponse = await axios.get("http://localhost:8080/transaction/getStockPrices", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {token: `${token}` },
         });
 
         if (!stockPricesResponse.data.success) {
@@ -87,10 +87,7 @@ export default function BuyStock() {
           "http://localhost:8080/engine/placeStockOrder",
           requestBody,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
+            headers: {token: `${token}` },
           }
         );
 

@@ -7,9 +7,6 @@ const WalletTxHandler = require('./routes/wallettx');
 const WalletBalanceHandler = require('./routes/walletbalance');
 const app = express();
 
-const cors = require('cors');
-app.use(cors());
-
 app.use(express.json());
 
 connectToDB();

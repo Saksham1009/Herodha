@@ -30,7 +30,7 @@ export default function SellStock() {
         }
 
         const response = await axios.get("http://localhost:8080/transaction/getStockPortfolio", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers:{token: `${token}` },
         });
 
         if (response.data.success) {
@@ -92,10 +92,7 @@ export default function SellStock() {
       };
 
       const response = await axios.post("http://localhost:8080/engine/placeStockOrder", requestBody, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: {token: `${token}` },
       });
 
       if (response.data.success) {

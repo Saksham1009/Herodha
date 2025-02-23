@@ -27,9 +27,7 @@ export default function AddToWallet() {
         }
 
         const response = await axios.get("http://localhost:8080/transaction/getWalletBalance", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: {token: `${token}` },
         });
 
         if (response.data.success) {
@@ -74,8 +72,7 @@ export default function AddToWallet() {
         { amount: amountFloat },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+           token: `${token}` 
           },
         }
       );

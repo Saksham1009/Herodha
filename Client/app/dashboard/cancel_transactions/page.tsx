@@ -27,7 +27,7 @@ export default function CancelTransactions() {
 
         // Fetch stock transactions directly
         const transactionsResponse = await axios.get("http://localhost:8080/transaction/getStockTransactions", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {token: `${token}` },
         });
 
         console.log(transactionsResponse);
@@ -74,10 +74,7 @@ export default function CancelTransactions() {
         "http://localhost:8080/engine/cancelStockTransaction",
         { stock_tx_id },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers: {token: `${token}` },
         }
       );
 

@@ -328,10 +328,14 @@ class OrderBook {
         return true;
     }
 
-    async cancelOrder(stock_id, user_id) {
-        const orderId = stock_id + '_' + user_id;
+    async cancelOrder(orderData) {
+        const orderId = orderData.stock_id + '_' + orderData.user_id;
         const order = this.orderIndex.get(orderId);
         if (!order) return false;
+
+        if (order.is_buy !== false || order.order_type !== 'LIMIT' || order.order_status === 'COMPLETED') {
+            return;
+        }
 
         order.order_status = "CANCELLED";
         this.orderIndex.delete(orderId);
@@ -340,31 +344,17 @@ class OrderBook {
         const orderBook = this.getStockOrderBook(stock_id);
         const orders = orderBook.getOrdersAtPrice(order.price);
         if (orders) {
-            const index = orders.findIndex(o => o.user_id === user_id);
+            const index = orders.findIndex(o => o.user_id === orderData.user_id);
             if (index !== -1) {
                 orders.splice(index, 1);
             }
         }
 
-        // Push the cancellation to the stock_transactions queue
-        if (this.channel) {
-            const cancellation = {
-                stock_tx_id: orderId,
-                stock_id: stock_id,
-                user_id: user_id,
-                quantity: order.remaining_quantity,
-                price: order.price,
-                timestamp: Date.now(),
-                type: 'CANCELLED' // Indicate that this is a cancelled transaction
-            };
-
-            await this.channel.sendToQueue(
-                'stock_transactions',
-                Buffer.from(JSON.stringify(cancellation)),
-                { persistent: true }
-            );
-            console.log('Cancellation sent to stock_transactions queue:', cancellation);
-        }
+        // update the stock transaction in Stock_Tx DB
+        const stockTx = await Stock_Tx.findById(orderData.stock_tx_id);
+        
+        stockTx.order_status = 'CANCELLED';
+        await stockTx.save();
 
         return true;
     }
@@ -549,7 +539,7 @@ async function startConsumer() {
                 const orderData = JSON.parse(message.content.toString());
                 console.log('Processing cancel order:', orderData);
 
-                orderBook.cancelOrder(orderData.stock_id, orderData.user_id);
+                orderBook.cancelOrder(orderData);
                 channel.ack(message);
             } catch (error) {
                 console.error('Error processing cancel order:', error);
