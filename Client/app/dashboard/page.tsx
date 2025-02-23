@@ -27,7 +27,7 @@ export default function Dashboard() {
         console.log(token);
         // Fetch Wallet Balance
         const walletResponse = await axios.get("http://localhost:8080/transaction/getWalletBalance", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {token: `${token}` },
         });
 
         if (!walletResponse.data.success) {
@@ -38,7 +38,7 @@ export default function Dashboard() {
 
         // Fetch Stock Portfolio
         const portfolioResponse = await axios.get("http://localhost:8080/transaction/getStockPortfolio", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {token: `${token}` },
         });
 
         if (!portfolioResponse.data.success) {
@@ -48,7 +48,7 @@ export default function Dashboard() {
 
         // Fetch Stock Prices
         const stockPricesResponse = await axios.get("http://localhost:8080/transaction/getStockPrices", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {token: `${token}` },
         });
 
         if (!stockPricesResponse.data.success) {

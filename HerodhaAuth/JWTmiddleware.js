@@ -1,13 +1,17 @@
 const jwt = require('jsonwebtoken');
 
 const verifyToken = (req, res, next) => {
-    const token = req.header('Authorization');
-    // const token = req.headers.token; // confirm this with Pratik bhaiya
-    if (!token) return res.status(401).json({ message: 'Access Denied, no token given' });
+    // Extract the token from a custom header named 'token'
+    const token = req.headers.token; // Accessing the token directly from a custom header
+
+    if (!token) {
+        return res.status(401).json({ message: 'Access Denied, no token given' });
+    }
 
     try {
-        const verified = jwt.verify(token.split(' ')[1], process.env.JWT_SECRET);
-        console.log(verified);
+        // Assuming the token does not come with a 'Bearer ' prefix since it's a custom implementation
+        const verified = jwt.verify(token, process.env.JWT_SECRET);
+        console.log(verified); // Optionally, remove console logs in production for security
         req.user = verified;
         next();
     } catch (err) {
