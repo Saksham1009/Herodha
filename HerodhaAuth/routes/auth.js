@@ -8,11 +8,24 @@ app.use(express.json());
 
 const router = express.Router();
 
-router.get('/verify-token', verifyToken, (req, res) => {
-    res.status(200).json({
-        "success": true,
-        "data": null
-    });
+router.get('/verify-token', (req, res) => {
+    // Extract the token from a custom header named 'token'
+    const token = req.headers.token; // Accessing the token directly from a custom header
+
+    if (!token) {
+        return res.status(401).json({ success: false, data: { error: 'Access Denied, no token given' } });
+    }
+
+    try {
+        // Assuming the token does not come with a 'Bearer ' prefix since it's a custom implementation
+        const verified = jwt.verify(token, process.env.JWT_SECRET);
+        console.log(verified); // Optionally, remove console logs in production for security
+        req.user = verified;
+        
+        return res.status(200).json({ success: true, data: { error: 'Token is valid' } });
+    } catch (err) {
+        return res.status(401).json({ success: false, data: { error: 'Invalid Token' } });
+    }
 });
 
 router.post('/register', async (req, res) => {

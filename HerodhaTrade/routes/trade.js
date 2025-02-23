@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const Stock = require('./../model/Stock');
 const Stock_Tx = require('./../model/Stock_Tx');
-const Wallet_Tx = require('./../model/Wallet_Tx');
 const User_Stocks = require('./../model/User_Stocks');
 const User = require('./../model/User');
 const jwt = require('jsonwebtoken');
@@ -158,6 +157,10 @@ router.post('/engine/placeStockOrder', async (req, res) => {
         });
     }
 
+    if (is_buy && order_type === 'MARKET' && price) {
+        return res.status(400).json({ "success": false, "data": { "error" : 'Price should not be provided for market orders' }});
+    }
+
     try {
         const stock = await Stock.findById(stock_id);
         if (!stock) {
@@ -214,22 +217,20 @@ router.post('/engine/cancelStockTransaction', async (req, res) => {
     const { stock_tx_id } = req.body;
     const user_id = extractCredentials(req).userId;
 
-    // Validate stock_tx_id format
-    if (!mongoose.Types.ObjectId.isValid(stock_tx_id)) {
-        return res.status(400).json({ success: false, message: "Invalid transaction ID" });
-    }
-
     try {
         const transaction = await Stock_Tx.findById(stock_tx_id);
         if (!transaction) {
             return res.status(404).json({ success: false, message: 'Transaction not found' });
         }
-        if (transaction.user_id.toString() !== user_id){
-            return res.status(401).json({ success: false, message: 'Unauthorized action' });
+
+        const orderData = {
+            stock_tx_id: stock_tx_id,
+            user_id: user_id,
+            stock_id: transaction.stock_id,
         }
         
-        console.log("Sending cancel request for transaction:", stock_tx_id);
-        sendCancelOrderToQueue({ stock_tx_id: stock_tx_id });
+        console.log("Sending cancel request for transaction:", orderData);
+        sendCancelOrderToQueue(orderData);
 
         return res.json({ "success": true, "data": null });
     } catch (err) {

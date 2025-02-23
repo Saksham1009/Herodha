@@ -95,7 +95,7 @@ router.post('/transaction/addMoneyToWallet', async (req, res) => {
         const amount = Number(req.body.amount);
 
         // Validate if amount entered in valid
-        if (amount === undefined || amount <= 0) {
+        if (amount === undefined || amount < 0) {
             return res.status(400).json({ "success": false, "data": {"error": "Amount must be a positive number" }});
         }
 

@@ -15,7 +15,7 @@ const verifyToken = (req, res, next) => {
         req.user = verified;
         next();
     } catch (err) {
-        return res.status(403).json({ message: 'Invalid Token' });
+        return res.status(401).json({ message: 'Invalid Token' });
     }
 };
 
