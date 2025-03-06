@@ -247,9 +247,19 @@ class OrderBook {
 
     getStockOrderBook(stock_id) {
         if (!this.stockOrderBooks.has(stock_id)) {
+            console.log("Stock ID DOES NOT Exists!");
             this.stockOrderBooks.set(stock_id, new PriorityQueue((a, b) => a < b));
         }
+        console.log("Stock ID Exists!");
         return this.stockOrderBooks.get(stock_id);
+    }
+
+    getStockOrderBookIfExists(stock_id) {
+        if (!this.stockOrderBooks.has(stock_id)) {
+            return null;
+        } else {
+            return this.stockOrderBooks.get(stock_id);
+        }
     }
 
     async addBuyOrder(order) {
@@ -323,38 +333,74 @@ class OrderBook {
 
         const orderBook = this.getStockOrderBook(order.stock_id);
         orderBook.enqueue(order.price, order);
-        this.orderIndex.set(order.stock_id + '_' + order.user_id, order);
+        // this.orderIndex.set(order.stock_id + '_' + order.user_id, order);
 
         return true;
     }
 
     async cancelOrder(orderData) {
-        const orderId = orderData.stock_id + '_' + orderData.user_id;
-        const order = this.orderIndex.get(orderId);
-        if (!order) return false;
-
-        if (order.is_buy !== false || order.order_type !== 'LIMIT' || order.order_status === 'COMPLETED') {
-            return;
-        }
-
-        order.order_status = "CANCELLED";
-        this.orderIndex.delete(orderId);
+        // const orderId = orderData.stock_id + '_' + orderData.user_id;
+        // const order = this.orderIndex.get(orderId);
+        console.log("first breakpoint");
+        // console.log("this is the order" + order);
 
         // Remove from order book
-        const orderBook = this.getStockOrderBook(stock_id);
-        const orders = orderBook.getOrdersAtPrice(order.price);
+        const orderBook = this.getStockOrderBookIfExists(orderData.stock_id);
+        if (!orderBook) {
+            return;
+        }
+        console.log("Order book: " + orderBook);
+        const orders = orderBook.getAllOrders();
+        console.log("second breakpoint");
+        console.log("Orders: " + orders);
+        var order = orders.filter((currentOrder) => {
+            console.log("Current Order: " + currentOrder.user_id);
+            console.log("Order Data: " + orderData.user_id);
+            return currentOrder.user_id === orderData.user_id;
+        })[0];
+        if (!order) {
+            return;
+        }
+        console.log("First ORder in can: " + order);
+        if (order.is_buy !== false || order.order_type !== 'LIMIT' || order.order_status === 'COMPLETED') {
+            console.log("third breakpoint, inside the if");
+            return;
+        }
+        const remaining_quantity = order.remaining_quantity;
+        console.log("Remaining quantity: " + remaining_quantity);
         if (orders) {
-            const index = orders.findIndex(o => o.user_id === orderData.user_id);
+            const index = orders.findIndex(o => o.user_id === orderData.user_id && o.stock_tx_id === orderData.stock_tx_id);
             if (index !== -1) {
                 orders.splice(index, 1);
             }
         }
 
+        console.log("fifth breakpoint");
+
         // update the stock transaction in Stock_Tx DB
         const stockTx = await Stock_Tx.findById(orderData.stock_tx_id);
+
+        console.log("sixth breakpoint");
         
         stockTx.order_status = 'CANCELLED';
         await stockTx.save();
+
+        const userStock = await User_Stocks.findOne({ user_id: orderData.user_id, stock_id: orderData.stock_id });
+        if (!userStock) {
+            const newUserStock = new User_Stocks({
+                user_id: orderData.user_id,
+                stock_name: orderData.stock_name,
+                stock_id: orderData.stock_id,
+                quantity_owned: remaining_quantity
+            });
+
+            await newUserStock.save();
+        } else {
+            userStock.quantity_owned += remaining_quantity;
+            await userStock.save();
+        }
+
+        console.log("seventh breakpoint");
 
         return true;
     }

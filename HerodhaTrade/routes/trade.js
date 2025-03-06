@@ -222,11 +222,13 @@ router.post('/engine/cancelStockTransaction', async (req, res) => {
         if (!transaction) {
             return res.status(404).json({ success: false, message: 'Transaction not found' });
         }
+        const stock = await Stock.findById(transaction.stock_id);
 
         const orderData = {
             stock_tx_id: stock_tx_id,
             user_id: user_id,
             stock_id: transaction.stock_id,
+            stock_name: stock.stock_name
         }
         
         console.log("Sending cancel request for transaction:", orderData);
