@@ -53,7 +53,7 @@ async function sendOrderToQueue(order, bestPrice) {
         var totalQuantityNotOwn = 0;
         allStocks.data.data.forEach((stockOrder) => {
             if (stockOrder.user_id !== order.user_id) {
-                totalQuantityNotOwn += stockOrder.quantity;
+                totalQuantityNotOwn += stockOrder.remaining_quantity;
             }
         });
         if (totalQuantityNotOwn < order.quantity) {

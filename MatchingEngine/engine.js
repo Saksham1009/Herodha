@@ -272,6 +272,8 @@ class OrderBook {
 
         const orderBook = this.getStockOrderBook(order.stock_id);
 
+        
+
         // while (order.remaining_quantity > 0 && !orderBook.isEmpty()) {
         const bestPrice = orderBook.peek(order.user_id);
         if (!bestPrice) throw new Error('No sell orders available');
