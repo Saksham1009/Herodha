@@ -271,63 +271,55 @@ class OrderBook {
         }
 
         const orderBook = this.getStockOrderBook(order.stock_id);
-
         
+        while (order.remaining_quantity > 0) {
+            const bestPrice = orderBook.peek(order.user_id);
+            if (!bestPrice) throw new Error('No sell orders available');
 
-        // while (order.remaining_quantity > 0 && !orderBook.isEmpty()) {
-        const bestPrice = orderBook.peek(order.user_id);
-        if (!bestPrice) throw new Error('No sell orders available');
+            const sellOrders = orderBook.getOrdersAtPrice(bestPrice);
+            if (!sellOrders.length) throw new Error('No sell orders available 2');
 
-        const sellOrders = orderBook.getOrdersAtPrice(bestPrice);
-        if (!sellOrders.length) throw new Error('No sell orders available 2');
+            // Get the first valid sell order (different user)
+            const sellOrder = sellOrders.find(so => so.user_id !== order.user_id);
+            if (!sellOrder) throw new Error('No sell orders available 3');
 
-        // Get the first valid sell order (different user)
-        const sellOrder = sellOrders.find(so => so.user_id !== order.user_id);
-        if (!sellOrder) throw new Error('No sell orders available 3');
+            // For market orders, any price is acceptable
+            const matchQuantity = Math.min(order.remaining_quantity, sellOrder.remaining_quantity);
 
-        // For market orders, any price is acceptable
-        const matchQuantity = Math.min(order.remaining_quantity, sellOrder.remaining_quantity);
+            // Execute the trade
+            await this.executeTrade(order, sellOrder, matchQuantity);
 
-        // Execute the trade
-        await this.executeTrade(order, sellOrder, matchQuantity);
+            // Update quantities
+            order.remaining_quantity -= matchQuantity;
+            sellOrder.remaining_quantity -= matchQuantity; //change to qunatity - matched
 
-        // Update quantities
-        order.remaining_quantity -= matchQuantity;
-        sellOrder.remaining_quantity -= matchQuantity; //change to qunatity - matched
+            // Update order status
+            order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPELTE';
 
-        // Update order status
-        order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPELTE';
+            console.log("Yaha pohonch gaue");
 
-        console.log("Yaha pohonch gaue");
+            if (sellOrder.remaining_quantity === 0) {
+                const parentStockTx = await Stock_Tx.findById(sellOrder.stock_tx_id);
+                parentStockTx.order_status = 'COMPLETED';
+                await parentStockTx.save();
+            }
 
-        if (sellOrder.remaining_quantity === 0) {
-            const parentStockTx = await Stock_Tx.findById(sellOrder.stock_tx_id);
-            parentStockTx.order_status = 'COMPLETED';
-            await parentStockTx.save();
+            // Remove completed sell order
+            if (sellOrder.remaining_quantity === 0) {
+                const orders = orderBook.getOrdersAtPrice(bestPrice);
+                const index = orders.indexOf(sellOrder);
+                if (index !== -1) {
+                    orders.splice(index, 1);
+                }
+                if (orders.length === 0) {
+                    orderBook.dequeue();
+                }
+            }
+
+            console.log("Here");
         }
 
-        // Remove completed sell order
-        if (sellOrder.remaining_quantity === 0) {
-            const orders = orderBook.getOrdersAtPrice(bestPrice);
-            const index = orders.indexOf(sellOrder);
-            if (index !== -1) {
-                orders.splice(index, 1);
-            }
-            if (orders.length === 0) {
-                orderBook.dequeue();
-            }
-        }
-
-        console.log("Here");
-        // }
-
-        // If the buy order is not fully fulfilled, log the remaining quantity
-        // TODO: Handle this!
-        // if (order.remaining_quantity > 0) {
-        //     console.log(`Buy order partially fulfilled. Remaining quantity: ${order.remaining_quantity}`);
-        // }
-
-        return order.remaining_quantity === 0;
+        return;
     }
 
     addSellOrder(order) {
