@@ -6,10 +6,9 @@ services:
       - "27017:27017"
     networks:
       - inter-service-network
-    # volumes:
-    #   - mongodb_data:/data/db
+    
   rabbitmq:
-    image: rabbitmq
+    image: rabbitmq:management
     container_name: rabbitmq
     hostname: rabbitmq
     restart: always
@@ -27,8 +26,7 @@ services:
       retries: 5
       start_period: 5s
       timeout: 5s
-
-
+          
   herodha_client:
     build:
       context: ./Client
@@ -38,12 +36,13 @@ services:
       - inter-service-network
     depends_on:
       - mongo
-  
+      
   herodha_admin:
-    build: 
+    build:
       context: ./HerodhaAdmin
-    ports:
-      - "3003:3003"
+    # Remove port mapping for scaled instances to avoid port conflicts
+    # ports:
+    #   - "3003:3003"
     volumes:
       - ./config:/app/config
       - ./model:/app/model
@@ -51,12 +50,15 @@ services:
       - inter-service-network
     depends_on:
       - mongo
-
+    deploy:
+      replicas: 3
+      
   herodha_auth:
     build:
       context: ./HerodhaAuth
-    ports:
-      - "3000:3000"
+    # Remove port mapping for scaled instances
+    # ports:
+    #   - "3000:3000"
     volumes:
       - ./config:/app/config
       - ./model:/app/model
@@ -64,12 +66,15 @@ services:
       - inter-service-network
     depends_on:
       - mongo
-
+    deploy:
+      replicas: 4
+      
   herodha_stockwallet:
     build:
       context: ./HerodhaStockWallet
-    ports:
-      - "3002:3002"
+    # Remove port mapping for scaled instances
+    # ports:
+    #   - "3002:3002"
     volumes:
       - ./config:/app/config
       - ./model:/app/model
@@ -77,12 +82,15 @@ services:
       - inter-service-network
     depends_on:
       - mongo
-
+    deploy:
+      replicas: 4
+      
   herodha_trade:
     build:
       context: ./HerodhaTrade
-    ports:
-      - "3001:3001"
+    # Remove port mapping for scaled instances
+    # ports:
+    #   - "3001:3001"
     volumes:
       - ./config:/app/config
       - ./model:/app/model
@@ -93,12 +101,15 @@ services:
         condition: service_healthy
       mongo:
         condition: service_started
-
+    deploy:
+      replicas: 5
+      
   matching_engine:
     build:
       context: ./MatchingEngine
-    ports:
-      - "3004:3004"
+    # Remove port mapping for scaled instances
+    # ports:
+    #   - "3004:3004"
     volumes:
       - ./config:/app/config
       - ./model:/app/model
@@ -110,7 +121,9 @@ services:
         condition: service_healthy
       mongo:
         condition: service_started
-
+    deploy:
+      replicas: 3
+      
   nginx:
     build:
       context: ./nginx
@@ -123,13 +136,9 @@ services:
       - herodha_trade
       - herodha_client
       - matching_engine
-      
     networks:
       - inter-service-network
 
 networks:
   inter-service-network:
     driver: bridge
-
-volumes:
-  mongodb_data:
