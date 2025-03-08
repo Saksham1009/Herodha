@@ -27,7 +27,7 @@ const StockTxCollection = new mongoose.Schema({
     time_stamp: {
         type: Date,
         required: true,
-        default: Date.now()
+        default: Date.now
     },
     parent_stock_tx_id: {
         type: ObjectIdType, //references '_id' of Stock_Tx

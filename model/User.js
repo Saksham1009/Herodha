@@ -22,7 +22,7 @@ const UserCollection = new mongoose.Schema({
     created_at: {
         type: Date,
         required: true,
-        default: Date.now()
+        default: Date.now
     },
     balance: {
         type: Number,

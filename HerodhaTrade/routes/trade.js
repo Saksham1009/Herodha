@@ -53,7 +53,7 @@ async function sendOrderToQueue(order, bestPrice) {
         var totalQuantityNotOwn = 0;
         allStocks.data.data.forEach((stockOrder) => {
             if (stockOrder.user_id !== order.user_id) {
-                totalQuantityNotOwn += stockOrder.quantity;
+                totalQuantityNotOwn += stockOrder.remaining_quantity;
             }
         });
         if (totalQuantityNotOwn < order.quantity) {
@@ -222,11 +222,13 @@ router.post('/engine/cancelStockTransaction', async (req, res) => {
         if (!transaction) {
             return res.status(404).json({ success: false, message: 'Transaction not found' });
         }
+        const stock = await Stock.findById(transaction.stock_id);
 
         const orderData = {
             stock_tx_id: stock_tx_id,
             user_id: user_id,
             stock_id: transaction.stock_id,
+            stock_name: stock.stock_name
         }
         
         console.log("Sending cancel request for transaction:", orderData);
