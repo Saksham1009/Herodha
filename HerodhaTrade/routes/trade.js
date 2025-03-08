@@ -209,6 +209,7 @@ router.post('/engine/placeStockOrder', async (req, res) => {
         
         return res.json({ success: true, data: null });
     } catch (err) {
+        console.log("Error returned here" + err);
         return res.status(500).json({ success: false, message: err.message });
     }
 });

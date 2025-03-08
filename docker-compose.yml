@@ -8,7 +8,7 @@ services:
       - inter-service-network
     
   rabbitmq:
-    image: rabbitmq:management
+    image: rabbitmq
     container_name: rabbitmq
     hostname: rabbitmq
     restart: always
@@ -121,8 +121,6 @@ services:
         condition: service_healthy
       mongo:
         condition: service_started
-    deploy:
-      replicas: 3
       
   nginx:
     build:
