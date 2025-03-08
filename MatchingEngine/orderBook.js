@@ -1,3 +1,9 @@
+const Stock_Tx = require('./model/Stock_Tx');
+const Wallet_Tx = require('./model/Wallet_Tx');
+const User_Stocks = require('./model/User_Stocks');
+const Stock = require('./model/Stock');
+const User = require('./model/User');
+
 // Description: This file contains the implementation of the OrderBook class which is used to manage the order book for the stock exchange. It uses a priority queue to store the orders and executes trades between buy and sell orders.
 class PriorityQueue {
     constructor(comparator) {
@@ -226,7 +232,7 @@ class OrderBook {
         // update the stock transaction in Stock_Tx DB
         const Stock_Tx = require('./model/Stock_Tx');
         const stockTx = await Stock_Tx.findById(orderData.stock_tx_id);
-        
+
         stockTx.order_status = 'CANCELLED';
         await stockTx.save();
 
@@ -254,12 +260,6 @@ class OrderBook {
     }
 
     async executeTrade(buyOrder, sellOrder, quantity) {
-        const Stock_Tx = require('./model/Stock_Tx');
-        const Wallet_Tx = require('./model/Wallet_Tx');
-        const User_Stocks = require('./model/User_Stocks');
-        const Stock = require('./model/Stock');
-        const User = require('./model/User');
-
         const trade = {
             buy_order_user_id: buyOrder.user_id,
             sell_order_user_id: sellOrder.user_id,
