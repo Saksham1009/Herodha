@@ -67,7 +67,7 @@ services:
     depends_on:
       - mongo
     deploy:
-      replicas: 4
+      replicas: 5
       
   herodha_stockwallet:
     build:
@@ -83,7 +83,7 @@ services:
     depends_on:
       - mongo
     deploy:
-      replicas: 4
+      replicas: 5
       
   herodha_trade:
     build:
