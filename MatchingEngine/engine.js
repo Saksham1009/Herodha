@@ -53,7 +53,7 @@ app.post('/engine/addBuyOrder', async (req, res) => {
             orderData.price
         );
         console.log('Processing buy order:', order);
-        await orderBook.addBuyOrder(order);
+        orderBook.addBuyOrder(order);
     } catch (error) {
         console.error('Error processing buy order:', error);
     }

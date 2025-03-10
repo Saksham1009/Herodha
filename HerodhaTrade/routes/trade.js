@@ -65,7 +65,7 @@ async function sendOrderToQueue(order, bestPrice) {
         await user.save();
 
         // channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
-        await axios.post('https://matching_engine:3004/engine/addBuyOrder', {
+        axios.post('http://matching_engine:3004/engine/addBuyOrder', {
             order: order
         });
     } else {
@@ -92,7 +92,7 @@ async function sendOrderToQueue(order, bestPrice) {
         await stockTx.save();
         order.stock_tx_id = stockTx._id.toString();
         // channel.sendToQueue('sell_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
-        await axios.post('https://matching_engine:3004/engine/addSellOrder', {
+        axios.post('http://matching_engine:3004/engine/addSellOrder', {
             order: order
         });
     }
@@ -101,7 +101,7 @@ async function sendOrderToQueue(order, bestPrice) {
 
 async function sendCancelOrderToQueue(order) {
     try {
-        axios.post('https://matching_engine:3004/engine/cancelOrder', {
+        axios.post('http://matching_engine:3004/engine/cancelOrder', {
             order: order
         });
 
