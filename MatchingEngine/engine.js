@@ -40,6 +40,56 @@ app.get('/engine/getAvailableStocks', async (req, res) => {
     }
 });
 
+app.post('/engine/addBuyOrder', async (req, res) => {
+    const orderData = req.body.order;
+
+    try {
+        const order = new Order(
+            orderData.stock_id,
+            orderData.user_id,
+            orderData.is_buy,
+            orderData.order_type,
+            orderData.quantity,
+            orderData.price
+        );
+        console.log('Processing buy order:', order);
+        await orderBook.addBuyOrder(order);
+    } catch (error) {
+        console.error('Error processing buy order:', error);
+    }
+});
+
+app.post('/engine/addSellOrder', async (req, res) => {
+    const orderData = req.body.order;
+    try {
+        const order = new Order(
+            orderData.stock_id,
+            orderData.user_id,
+            orderData.is_buy,
+            orderData.order_type,
+            orderData.quantity,
+            orderData.price,
+            orderData.stock_tx_id
+        );
+        console.log('Processing sell order:', order);
+
+        orderBook.addSellOrder(order);
+    } catch (error) {
+        console.error('Error processing sell order:', error);
+    }
+});
+
+app.post('/engine/cancelOrder', async (req, res) => {
+    const orderData = req.body.order;
+    try {
+        console.log('Processing cancel order:', orderData);
+
+        orderBook.cancelOrder(orderData);
+    } catch (error) {
+        console.error('Error processing cancel order:', error);
+    }
+});
+
 app.get('/engine/getPrice', (req, res) => {
     console.log("Received request with query params:", req.query);
     let { stock_id } = req.query;
