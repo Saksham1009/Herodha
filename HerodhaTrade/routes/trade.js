@@ -64,10 +64,10 @@ async function sendOrderToQueue(order, bestPrice) {
         user.balance -= (order.quantity * bestPrice);
         await user.save();
 
-        // channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
-        axios.post('http://matching_engine:3004/engine/addBuyOrder', {
-            order: order
-        });
+        channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
+        // axios.post('http://matching_engine:3004/engine/addBuyOrder', {
+        //     order: order
+        // });
     } else {
         // deduct stock from user
         const userStock = await User_Stocks.findOne({ user_id: order.user_id, stock_id: order.stock_id });
@@ -91,25 +91,25 @@ async function sendOrderToQueue(order, bestPrice) {
 
         await stockTx.save();
         order.stock_tx_id = stockTx._id.toString();
-        // channel.sendToQueue('sell_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
-        axios.post('http://matching_engine:3004/engine/addSellOrder', {
-            order: order
-        });
+        channel.sendToQueue('sell_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
+        //axios.post('http://matching_engine:3004/engine/addSellOrder', {
+        //     order: order
+        // });
     }
     console.log(`Order sent: ${JSON.stringify(order)}`);
 }
 
 async function sendCancelOrderToQueue(order) {
     try {
-        axios.post('http://matching_engine:3004/engine/cancelOrder', {
-            order: order
-        });
+        // axios.post('http://matching_engine:3004/engine/cancelOrder', {
+        //     order: order
+        // });
 
-        // channel.sendToQueue(
-        //     'cancel_orders',
-        //     Buffer.from(JSON.stringify(order)),
-        //     { persistent: true }
-        // );
+        channel.sendToQueue(
+            'cancel_orders',
+            Buffer.from(JSON.stringify(order)),
+            { persistent: true }
+        );
         console.log(`Cancel order sent: ${JSON.stringify(order)}`);
     } catch (err) {
         console.error("Failed to send cancel order to queue:", err);
