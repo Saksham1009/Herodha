@@ -469,223 +469,101 @@ class OrderBook {
         }
     }
 
-    // async executeTrade(buyOrder, sellOrder, quantity) {
-    //     const trade = {
-    //         buy_order_user_id: buyOrder.user_id,
-    //         sell_order_user_id: sellOrder.user_id,
-    //         stock_id: buyOrder.stock_id,
-    //         price: sellOrder.price,
-    //         quantity: quantity,
-    //         timestamp: Date.now()
-    //     };
-
-    //     this.trades.push(trade);
-
-    //     try {
-    //         console.log("Stock transaction push kr rhe h ");
-    //         const stockTx = new Stock_Tx({
-    //             stock_id: sellOrder.stock_id,
-    //             user_id: sellOrder.user_id,
-    //             quantity: quantity,
-    //             stock_price: sellOrder.price,
-    //             is_buy: false,
-    //             order_status: 'COMPLETED',
-    //             parent_stock_tx_id: sellOrder.stock_tx_id,
-    //             order_type: sellOrder.order_type,
-    //             wallet_tx_id: null
-    //         });
-    //         await stockTx.save();
-
-    //         const parentStockTx = await Stock_Tx.findById(sellOrder.stock_tx_id);
-    //         parentStockTx.order_status = 'PARTIALLY_COMPLETE';
-    //         await parentStockTx.save();
-
-    //         const buyOrderStockTx = new Stock_Tx({
-    //             stock_id: buyOrder.stock_id,
-    //             user_id: buyOrder.user_id,
-    //             quantity: quantity,
-    //             stock_price: sellOrder.price,
-    //             is_buy: true,
-    //             order_status: 'COMPLETED',
-    //             parent_stock_tx_id: null,
-    //             order_type: buyOrder.order_type,
-    //             wallet_tx_id: null
-    //         });
-    //         await buyOrderStockTx.save();
-
-
-    //         var buyUserStock = await User_Stocks.findOne({ user_id: buyOrder.user_id, stock_id: buyOrder.stock_id });
-    //         if (buyUserStock) {
-    //             buyUserStock.quantity_owned += quantity;
-    //         } else {
-    //             const stock = await Stock.findById(buyOrder.stock_id);
-    //             buyUserStock = new User_Stocks({
-    //                 user_id: buyOrder.user_id,
-    //                 stock_name: stock.stock_name,
-    //                 stock_id: buyOrder.stock_id,
-    //                 quantity_owned: quantity
-    //             });
-    //         }
-    //         await buyUserStock.save();
-
-    //         const walletTx = new Wallet_Tx({
-    //             stock_id: sellOrder.stock_id,
-    //             user_id: sellOrder.user_id,
-    //             amount: quantity * sellOrder.price,
-    //             is_debit: false,
-    //             stock_tx_id: stockTx._id.toString()
-    //         });
-    //         await walletTx.save();
-
-    //         const buyOrderWalletTx = new Wallet_Tx({
-    //             stock_id: buyOrder.stock_id,
-    //             user_id: buyOrder.user_id,
-    //             amount: quantity * sellOrder.price,
-    //             is_debit: true,
-    //             stock_tx_id: buyOrderStockTx._id.toString()
-    //         });
-    //         await buyOrderWalletTx.save();
-
-    //         buyOrderStockTx.wallet_tx_id = buyOrderWalletTx._id.toString();
-    //         await buyOrderStockTx.save();
-
-    //         stockTx.wallet_tx_id = walletTx._id.toString();
-    //         await stockTx.save();
-
-    //         const user = await User.findById(sellOrder.user_id);
-    //         user.balance += (quantity * sellOrder.price);
-    //         await user.save();
-    //     } catch (error) {
-    //         console.error('Error executing trade:', error);
-    //     }
-
-
-    //     return trade;
-    // }
-
     async executeTrade(buyOrder, sellOrder, quantity) {
-        const session = await mongoose.startSession();
-        session.startTransaction();
-        
+        const trade = {
+            buy_order_user_id: buyOrder.user_id,
+            sell_order_user_id: sellOrder.user_id,
+            stock_id: buyOrder.stock_id,
+            price: sellOrder.price,
+            quantity: quantity,
+            timestamp: Date.now()
+        };
+
+        this.trades.push(trade);
+
         try {
-            console.log("Stock transaction push kr rhe h");
-    
-            const trade = {
-                buy_order_user_id: buyOrder.user_id,
-                sell_order_user_id: sellOrder.user_id,
-                stock_id: buyOrder.stock_id,
-                price: sellOrder.price,
-                quantity: quantity,
-                timestamp: Date.now(),
-            };
-    
-            this.trades.push(trade);
-    
+            console.log("Stock transaction push kr rhe h ");
             const stockTx = new Stock_Tx({
                 stock_id: sellOrder.stock_id,
                 user_id: sellOrder.user_id,
                 quantity: quantity,
                 stock_price: sellOrder.price,
                 is_buy: false,
-                order_status: "COMPLETED",
+                order_status: 'COMPLETED',
                 parent_stock_tx_id: sellOrder.stock_tx_id,
                 order_type: sellOrder.order_type,
-                wallet_tx_id: null,
+                wallet_tx_id: null
             });
-    
+            await stockTx.save();
+
+            const parentStockTx = await Stock_Tx.findById(sellOrder.stock_tx_id);
+            parentStockTx.order_status = 'PARTIALLY_COMPLETE';
+            await parentStockTx.save();
+
             const buyOrderStockTx = new Stock_Tx({
                 stock_id: buyOrder.stock_id,
                 user_id: buyOrder.user_id,
                 quantity: quantity,
                 stock_price: sellOrder.price,
                 is_buy: true,
-                order_status: "COMPLETED",
+                order_status: 'COMPLETED',
                 parent_stock_tx_id: null,
                 order_type: buyOrder.order_type,
-                wallet_tx_id: null,
+                wallet_tx_id: null
             });
-    
-            // Bulk Save Transactions
-            await Stock_Tx.bulkWrite(
-                [
-                    { insertOne: { document: stockTx } },
-                    { insertOne: { document: buyOrderStockTx } },
-                    {
-                        updateOne: {
-                            filter: { _id: sellOrder.stock_tx_id },
-                            update: { $set: { order_status: "PARTIALLY_COMPLETE" } },
-                        },
-                    },
-                ],
-                { session }
-            );
-    
-            const [buyUserStock, stock] = await Promise.all([
-                User_Stocks.findOne({ user_id: buyOrder.user_id, stock_id: buyOrder.stock_id }).session(session),
-                buyUserStock ? null : Stock.findById(buyOrder.stock_id).session(session),
-            ]);
-    
+            await buyOrderStockTx.save();
+
+
+            var buyUserStock = await User_Stocks.findOne({ user_id: buyOrder.user_id, stock_id: buyOrder.stock_id });
             if (buyUserStock) {
-                await User_Stocks.updateOne(
-                    { _id: buyUserStock._id },
-                    { $inc: { quantity_owned: quantity } },
-                    { session }
-                );
+                buyUserStock.quantity_owned += quantity;
             } else {
-                await new User_Stocks({
+                const stock = await Stock.findById(buyOrder.stock_id);
+                buyUserStock = new User_Stocks({
                     user_id: buyOrder.user_id,
                     stock_name: stock.stock_name,
                     stock_id: buyOrder.stock_id,
-                    quantity_owned: quantity,
-                }).save({ session });
+                    quantity_owned: quantity
+                });
             }
-    
+            await buyUserStock.save();
+
             const walletTx = new Wallet_Tx({
                 stock_id: sellOrder.stock_id,
                 user_id: sellOrder.user_id,
                 amount: quantity * sellOrder.price,
                 is_debit: false,
-                stock_tx_id: stockTx._id.toString(),
+                stock_tx_id: stockTx._id.toString()
             });
-    
+            await walletTx.save();
+
             const buyOrderWalletTx = new Wallet_Tx({
                 stock_id: buyOrder.stock_id,
                 user_id: buyOrder.user_id,
                 amount: quantity * sellOrder.price,
                 is_debit: true,
-                stock_tx_id: buyOrderStockTx._id.toString(),
+                stock_tx_id: buyOrderStockTx._id.toString()
             });
-    
-            await Wallet_Tx.bulkWrite(
-                [
-                    { insertOne: { document: walletTx } },
-                    { insertOne: { document: buyOrderWalletTx } },
-                ],
-                { session }
-            );
-    
-            await Stock_Tx.updateMany(
-                { _id: { $in: [buyOrderStockTx._id, stockTx._id] } },
-                [{ $set: { wallet_tx_id: { $toString: "$_id" } } }],
-                { session }
-            );
-    
-            await User.updateOne(
-                { _id: sellOrder.user_id },
-                { $inc: { balance: quantity * sellOrder.price } },
-                { session }
-            );
-    
-            await session.commitTransaction();
-            session.endSession();
-    
-            return trade;
+            await buyOrderWalletTx.save();
+
+            buyOrderStockTx.wallet_tx_id = buyOrderWalletTx._id.toString();
+            await buyOrderStockTx.save();
+
+            stockTx.wallet_tx_id = walletTx._id.toString();
+            await stockTx.save();
+
+            const user = await User.findById(sellOrder.user_id);
+            user.balance += (quantity * sellOrder.price);
+            await user.save();
         } catch (error) {
-            await session.abortTransaction();
-            session.endSession();
-            console.error("Error executing trade:", error);
+            console.error('Error executing trade:', error);
         }
+
+
+        return trade;
     }
+
+    
 }
 
 const orderBook = new OrderBook();
