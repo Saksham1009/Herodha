@@ -591,7 +591,7 @@ async function startConsumer() {
                 console.log('Processing buy order:', order);
 
                 channel.ack(message);
-                await orderBook.addBuyOrder(order);
+                orderBook.addBuyOrder(order);
             } catch (error) {
                 console.error('Error processing buy order:', error);
                 channel.nack(message);
