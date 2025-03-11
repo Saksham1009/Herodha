@@ -7,7 +7,10 @@ const Stock = require('./model/Stock');
 const Wallet_Tx = require('./model/Wallet_Tx');
 const User_Stocks = require('./model/User_Stocks');
 const User = require('./model/User');
+const Redis = require('ioredis'); // this could be an issue -> revert to redis
 
+// Redis client setup
+const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 
 const express = require('express');
 const app = express();
@@ -16,17 +19,21 @@ app.use(express.json());
 app.get('/engine/getAvailableStocks', async (req, res) => {
     let { stock_id } = req.query;
 
-
     console.log("Stock ID" + req.query);
 
     try {
+        const orderBook = new OrderBook();
         let stocks = [];
-        const stockList = orderBook.stockOrderBooks.get(stock_id);
-        stocks = stockList.getAllOrders();
-        if (!stockList || stockList.isEmpty()) {
-            return;
+        const stockList = await orderBook.getStockOrderBook(stock_id);
+        if (!stockList || await orderBook.isStockOrderBookEmpty(stock_id)) {
+            return res.status(404).json({
+                success: false,
+                message: 'No orders found for this stock'
+            });
         }
-
+        
+        stocks = await orderBook.getAllOrders(stock_id);
+        
         return res.status(200).json({
             success: true,
             data: stocks
@@ -53,9 +60,19 @@ app.post('/engine/addBuyOrder', async (req, res) => {
             orderData.price
         );
         console.log('Processing buy order:', order);
-        orderBook.addBuyOrder(order);
+        const orderBook = new OrderBook();
+        await orderBook.addBuyOrder(order);
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Buy order processed successfully'
+        });
     } catch (error) {
         console.error('Error processing buy order:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 });
 
@@ -73,9 +90,19 @@ app.post('/engine/addSellOrder', async (req, res) => {
         );
         console.log('Processing sell order:', order);
 
-        orderBook.addSellOrder(order);
+        const orderBook = new OrderBook();
+        await orderBook.addSellOrder(order);
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Sell order processed successfully'
+        });
     } catch (error) {
         console.error('Error processing sell order:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 });
 
@@ -84,57 +111,57 @@ app.post('/engine/cancelOrder', async (req, res) => {
     try {
         console.log('Processing cancel order:', orderData);
 
-        orderBook.cancelOrder(orderData);
+        const orderBook = new OrderBook();
+        await orderBook.cancelOrder(orderData);
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Order cancelled successfully'
+        });
     } catch (error) {
         console.error('Error processing cancel order:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 });
 
-app.get('/engine/getPrice', (req, res) => {
+app.get('/engine/getPrice', async (req, res) => {
     console.log("Received request with query params:", req.query);
     let { stock_id } = req.query;
+    const orderBook = new OrderBook();
 
     try {
         if (!stock_id) {
-            console.log("Yaha aa gaye");
-            const bestPrices = [];
-            console.log("This is the orderBook" + orderBook.stockOrderBooks);
-            orderBook.stockOrderBooks.forEach(item => {
-                const price = item.peek();
-                const order = item.getOrdersAtPrice(price)[0];
-                console.log("This is the order" + order.stock_id);
-                console.log("This is the price" + price);
-                bestPrices.push({
-                    "stock_id": order.stock_id,
-                    "best_price": price
-                });
-            });
-            console.log("This is the best prices" + bestPrices);
+            const bestPrices = await orderBook.getAllBestPrices();
+            console.log("Best prices:", bestPrices);
             return res.status(200).json({
                 success: true,
                 data: bestPrices
             });
         } else {
-            console.log("vaha a a gaaya");
-            const stockBook = orderBook.stockOrderBooks.get(stock_id);
-            console.log("This is the best price" + stockBook);
-            if (!stockBook || stockBook.isEmpty()) {
-                console.log("kya hum yaha aa gaue");
+            const stockBook = await orderBook.getStockOrderBookIfExists(stock_id);
+            if (!stockBook || await orderBook.isStockOrderBookEmpty(stock_id)) {
                 return res.status(404).json({
                     success: false,
                     message: 'No sell orders found for this stock'
                 });
             } else {
-                console.log("Inside aa gaye");
-                const price = stockBook.peek();
-                console.log("This is the price" + price);
-                const order = stockBook.getOrdersAtPrice(price)[0];
-                console.log("This is the order" + order.stock_id);
+                const bestPrice = await orderBook.getBestPrice(stock_id);
+                const orders = await orderBook.getOrdersAtPrice(stock_id, bestPrice);
+                if (!orders || orders.length === 0) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'No orders found for this stock at best price'
+                    });
+                }
+                const order = JSON.parse(orders[0]);
                 return res.status(200).json({
                     success: true,
                     data: {
                         stock_id: order.stock_id,
-                        best_price: price
+                        best_price: bestPrice
                     }
                 });
             }
@@ -150,11 +177,12 @@ app.get('/engine/getPrice', (req, res) => {
 
 connectToDB();
 
-app.post('/', (req, res) => {
+app.post('/', async (req, res) => {
     const stock_id = req.body.stock_id;
     const user_id = req.body.user_id;
 
-    const bestPrice = orderBook.getBestPrice(stock_id, user_id);
+    const orderBook = new OrderBook();
+    const bestPrice = await orderBook.getBestPrice(stock_id, user_id);
     return res.status(200).json({
         success: true,
         data: {
@@ -164,107 +192,9 @@ app.post('/', (req, res) => {
     });
 });
 
-
-app.listen(3004);
-
-class PriorityQueue {
-    constructor(comparator) {
-        this.heap = [];
-        this.comparator = comparator;
-        this.orderMap = new Map();
-    }
-
-    peek() {
-        return this.heap[0];
-    }
-
-    peekBestPrice(user_id) {
-        const bestOrder = this.heap[0];
-        if (bestOrder.user_id !== user_id) {
-            return bestOrder.price;
-        } else {
-            let i = 1;
-            while (bestOrder.user_id === user_id) {
-                bestOrder = this.heap[i];
-                i++;
-            }
-            return bestOrder.price
-        }
-    }
-
-    enqueue(price, order) {
-        if (!this.orderMap.has(price)) {
-            this.orderMap.set(price, []);
-            this.heap.push(price);
-            this._bubbleUp(this.heap.length - 1);
-        }
-        this.orderMap.get(price).push(order);
-    }
-
-    dequeue() {
-        if (this.isEmpty()) return null;
-
-        const bestPrice = this.heap[0];
-        const orders = this.orderMap.get(bestPrice);
-        const order = orders.shift();
-
-        if (orders.length === 0) {
-            this.orderMap.delete(bestPrice);
-            const lastPrice = this.heap.pop();
-            if (this.heap.length > 0) {
-                this.heap[0] = lastPrice;
-                this._bubbleDown(0);
-            }
-        }
-
-        return order;
-    }
-
-    isEmpty() {
-        return this.heap.length === 0;
-    }
-
-    _bubbleUp(index) {
-        while (index > 0) {
-            const parentIndex = Math.floor((index - 1) / 2);
-            if (this.comparator(this.heap[parentIndex], this.heap[index])) break;
-            [this.heap[parentIndex], this.heap[index]] = [this.heap[index], this.heap[parentIndex]];
-            index = parentIndex;
-        }
-    }
-
-    _bubbleDown(index) {
-        while (true) {
-            let smallest = index;
-            const leftChild = 2 * index + 1;
-            const rightChild = 2 * index + 2;
-
-            if (leftChild < this.heap.length && this.comparator(this.heap[leftChild], this.heap[smallest])) {
-                smallest = leftChild;
-            }
-            if (rightChild < this.heap.length && this.comparator(this.heap[rightChild], this.heap[smallest])) {
-                smallest = rightChild;
-            }
-
-            if (smallest === index) break;
-
-            [this.heap[index], this.heap[smallest]] = [this.heap[smallest], this.heap[index]];
-            index = smallest;
-        }
-    }
-
-    getAllOrders() {
-        const orders = [];
-        this.heap.forEach(price => {
-            orders.push(...this.orderMap.get(price));
-        });
-        return orders;
-    }
-
-    getOrdersAtPrice(price) {
-        return this.orderMap.get(price) || [];
-    }
-}
+app.listen(3004, () => {
+    console.log('Order engine service running on port 3004');
+});
 
 class Order {
     constructor(stock_id, user_id, is_buy, order_type, quantity, price, stock_tx_id = null) {
@@ -283,33 +213,123 @@ class Order {
 
 class OrderBook {
     constructor() {
-        this.stockOrderBooks = new Map();
-        this.orderIndex = new Map();
-        this.trades = [];
         this.expiryMinutes = 15; // Orders expire after 15 minutes
     }
 
-    getBestPrice(stock_id, user_id) {
-        const orderBook = this.getStockOrderBook(stock_id);
-        const bestPrice = orderBook.peekBestPrice(user_id);
-        return bestPrice || null;
+    // Redis key helpers
+    getStockKey(stock_id) {
+        return `stock:${stock_id}`;
+    }
+    
+    getPriceKey(stock_id, price) {
+        return `stock:${stock_id}:price:${price}`;
+    }
+    
+    getStockPricesKey(stock_id) {
+        return `stock:${stock_id}:prices`;
+    }
+    
+    getTradesKey() {
+        return 'trades';
+    }
+    
+    getStocksKey() {
+        return 'stocks';
     }
 
-    getStockOrderBook(stock_id) {
-        if (!this.stockOrderBooks.has(stock_id)) {
-            console.log("Stock ID DOES NOT Exists!");
-            this.stockOrderBooks.set(stock_id, new PriorityQueue((a, b) => a < b));
-        }
-        console.log("Stock ID Exists!");
-        return this.stockOrderBooks.get(stock_id);
+    async getAllStocks() {
+        return await redis.smembers(this.getStocksKey());
     }
 
-    getStockOrderBookIfExists(stock_id) {
-        if (!this.stockOrderBooks.has(stock_id)) {
+    async getBestPrice(stock_id, user_id = null) {
+        const pricesKey = this.getStockPricesKey(stock_id);
+        // Get first price (lowest) from sorted set
+        const prices = await redis.zrange(pricesKey, 0, 0);
+        
+        if (!prices || prices.length === 0) {
             return null;
-        } else {
-            return this.stockOrderBooks.get(stock_id);
         }
+        
+        const bestPrice = parseFloat(prices[0]);
+        
+        // If user_id is provided, make sure the best price is not from the same user
+        if (user_id) {
+            const priceKey = this.getPriceKey(stock_id, bestPrice);
+            const orders = await redis.lrange(priceKey, 0, -1);
+            
+            // Find the first order not from the same user
+            for (const orderJson of orders) {
+                const order = JSON.parse(orderJson);
+                if (order.user_id !== user_id) {
+                    return bestPrice;
+                }
+            }
+            
+            // If all orders at the best price are from the same user, get next best price
+            const nextPrices = await redis.zrange(pricesKey, 1, 1);
+            return nextPrices.length ? parseFloat(nextPrices[0]) : null;
+        }
+        
+        return bestPrice;
+    }
+
+    async getAllBestPrices() {
+        const stocks = await this.getAllStocks();
+        const bestPrices = [];
+        
+        for (const stock_id of stocks) {
+            const bestPrice = await this.getBestPrice(stock_id);
+            if (bestPrice !== null) {
+                const priceKey = this.getPriceKey(stock_id, bestPrice);
+                const orders = await redis.lrange(priceKey, 0, 0);
+                if (orders && orders.length > 0) {
+                    const order = JSON.parse(orders[0]);
+                    bestPrices.push({
+                        "stock_id": order.stock_id,
+                        "best_price": bestPrice
+                    });
+                }
+            }
+        }
+        
+        return bestPrices;
+    }
+
+    async getStockOrderBook(stock_id) {
+        // Add stock_id to the set of stocks if it doesn't exist
+        await redis.sadd(this.getStocksKey(), stock_id);
+        return stock_id;
+    }
+
+    async getStockOrderBookIfExists(stock_id) {
+        const exists = await redis.sismember(this.getStocksKey(), stock_id);
+        return exists ? stock_id : null;
+    }
+
+    async isStockOrderBookEmpty(stock_id) {
+        const pricesKey = this.getStockPricesKey(stock_id);
+        const count = await redis.zcard(pricesKey);
+        return count === 0;
+    }
+
+    async getAllOrders(stock_id) {
+        const pricesKey = this.getStockPricesKey(stock_id);
+        const prices = await redis.zrange(pricesKey, 0, -1);
+        let allOrders = [];
+        
+        for (const price of prices) {
+            const priceKey = this.getPriceKey(stock_id, price);
+            const ordersJson = await redis.lrange(priceKey, 0, -1);
+            const orders = ordersJson.map(json => JSON.parse(json));
+            allOrders = allOrders.concat(orders);
+        }
+        
+        return allOrders;
+    }
+
+    async getOrdersAtPrice(stock_id, price) {
+        const priceKey = this.getPriceKey(stock_id, price);
+        return await redis.lrange(priceKey, 0, -1);
     }
 
     async addBuyOrder(order) {
@@ -320,17 +340,29 @@ class OrderBook {
             throw new Error('Buy orders must be of type MARKET');
         }
 
-        const orderBook = this.getStockOrderBook(order.stock_id);
+        // Get stock
+        await this.getStockOrderBook(order.stock_id);
         
         while (order.remaining_quantity > 0) {
-            const bestPrice = orderBook.peek(order.user_id);
+            const bestPrice = await this.getBestPrice(order.stock_id, order.user_id);
             if (!bestPrice) throw new Error('No sell orders available');
 
-            const sellOrders = orderBook.getOrdersAtPrice(bestPrice);
-            if (!sellOrders.length) throw new Error('No sell orders available 2');
+            const ordersJson = await this.getOrdersAtPrice(order.stock_id, bestPrice);
+            if (!ordersJson.length) throw new Error('No sell orders available 2');
 
             // Get the first valid sell order (different user)
-            const sellOrder = sellOrders.find(so => so.user_id !== order.user_id);
+            let sellOrder = null;
+            let sellOrderIndex = -1;
+            
+            for (let i = 0; i < ordersJson.length; i++) {
+                const so = JSON.parse(ordersJson[i]);
+                if (so.user_id !== order.user_id) {
+                    sellOrder = so;
+                    sellOrderIndex = i;
+                    break;
+                }
+            }
+            
             if (!sellOrder) throw new Error('No sell orders available 3');
 
             // For market orders, any price is acceptable
@@ -341,112 +373,108 @@ class OrderBook {
 
             // Update quantities
             order.remaining_quantity -= matchQuantity;
-            sellOrder.remaining_quantity -= matchQuantity; //change to qunatity - matched
+            sellOrder.remaining_quantity -= matchQuantity;
 
             // Update order status
             order.order_status = order.remaining_quantity === 0 ? 'COMPLETED' : 'PARTIALLY_COMPELTE';
-
-            console.log("Yaha pohonch gaue");
 
             if (sellOrder.remaining_quantity === 0) {
                 const parentStockTx = await Stock_Tx.findById(sellOrder.stock_tx_id);
                 parentStockTx.order_status = 'COMPLETED';
                 await parentStockTx.save();
-            }
-
-            // Remove completed sell order
-            if (sellOrder.remaining_quantity === 0) {
-                const orders = orderBook.getOrdersAtPrice(bestPrice);
-                const index = orders.indexOf(sellOrder);
-                if (index !== -1) {
-                    orders.splice(index, 1);
+                
+                // Remove the completed sell order from Redis
+                const priceKey = this.getPriceKey(order.stock_id, bestPrice);
+                await redis.lrem(priceKey, 1, ordersJson[sellOrderIndex]);
+                
+                // If no more orders at this price, remove the price from the sorted set
+                if (await redis.llen(priceKey) === 0) {
+                    await redis.zrem(this.getStockPricesKey(order.stock_id), bestPrice.toString());
                 }
-                if (orders.length === 0) {
-                    orderBook.dequeue();
-                }
+            } else {
+                // Update the sell order in Redis
+                const priceKey = this.getPriceKey(order.stock_id, bestPrice);
+                await redis.lset(priceKey, sellOrderIndex, JSON.stringify(sellOrder));
             }
-
-            console.log("Here");
         }
 
-        return;
+        return true;
     }
 
-    addSellOrder(order) {
+    async addSellOrder(order) {
         this.validateOrder(order);
 
-        const orderBook = this.getStockOrderBook(order.stock_id);
-        orderBook.enqueue(order.price, order);
-        // this.orderIndex.set(order.stock_id + '_' + order.user_id, order);
+        // Add stock_id to the set of stocks
+        await this.getStockOrderBook(order.stock_id);
+        
+        // Add price to the sorted set for this stock (lowest price first)
+        const pricesKey = this.getStockPricesKey(order.stock_id);
+        await redis.zadd(pricesKey, order.price, order.price.toString());
+        
+        // Add order to the list of orders at this price
+        const priceKey = this.getPriceKey(order.stock_id, order.price);
+        await redis.rpush(priceKey, JSON.stringify(order));
 
         return true;
     }
 
     async cancelOrder(orderData) {
-        // const orderId = orderData.stock_id + '_' + orderData.user_id;
-        // const order = this.orderIndex.get(orderId);
-        console.log("first breakpoint");
-        // console.log("this is the order" + order);
-
-        // Remove from order book
-        const orderBook = this.getStockOrderBookIfExists(orderData.stock_id);
-        if (!orderBook) {
-            return;
+        const stockBook = await this.getStockOrderBookIfExists(orderData.stock_id);
+        if (!stockBook) {
+            return false;
         }
-        console.log("Order book: " + orderBook);
-        const orders = orderBook.getAllOrders();
-        console.log("second breakpoint");
-        console.log("Orders: " + orders);
-        var order = orders.filter((currentOrder) => {
-            console.log("Current Order: " + currentOrder.user_id);
-            console.log("Order Data: " + orderData.user_id);
-            return currentOrder.user_id === orderData.user_id;
-        })[0];
-        if (!order) {
-            return;
-        }
-        console.log("First ORder in can: " + order);
-        if (order.is_buy !== false || order.order_type !== 'LIMIT' || order.order_status === 'COMPLETED') {
-            console.log("third breakpoint, inside the if");
-            return;
-        }
-        const remaining_quantity = order.remaining_quantity;
-        console.log("Remaining quantity: " + remaining_quantity);
-        if (orders) {
-            const index = orders.findIndex(o => o.user_id === orderData.user_id && o.stock_tx_id === orderData.stock_tx_id);
-            if (index !== -1) {
-                orders.splice(index, 1);
+        
+        const pricesKey = this.getStockPricesKey(orderData.stock_id);
+        const prices = await redis.zrange(pricesKey, 0, -1);
+        
+        for (const price of prices) {
+            const priceKey = this.getPriceKey(orderData.stock_id, price);
+            const ordersJson = await redis.lrange(priceKey, 0, -1);
+            
+            for (let i = 0; i < ordersJson.length; i++) {
+                const order = JSON.parse(ordersJson[i]);
+                
+                if (order.user_id === orderData.user_id && order.stock_tx_id === orderData.stock_tx_id) {
+                    if (order.is_buy !== false || order.order_type !== 'LIMIT' || order.order_status === 'COMPLETED') {
+                        return false;
+                    }
+                    
+                    const remaining_quantity = order.remaining_quantity;
+                    
+                    // Remove the order from Redis
+                    await redis.lrem(priceKey, 1, ordersJson[i]);
+                    
+                    // If no more orders at this price, remove the price from the sorted set
+                    if (await redis.llen(priceKey) === 0) {
+                        await redis.zrem(pricesKey, price);
+                    }
+                    
+                    // Update the stock transaction in Stock_Tx DB
+                    const stockTx = await Stock_Tx.findById(orderData.stock_tx_id);
+                    stockTx.order_status = 'CANCELLED';
+                    await stockTx.save();
+                    
+                    // Update or create user stock
+                    const userStock = await User_Stocks.findOne({ user_id: orderData.user_id, stock_id: orderData.stock_id });
+                    if (!userStock) {
+                        const newUserStock = new User_Stocks({
+                            user_id: orderData.user_id,
+                            stock_name: orderData.stock_name,
+                            stock_id: orderData.stock_id,
+                            quantity_owned: remaining_quantity
+                        });
+                        await newUserStock.save();
+                    } else {
+                        userStock.quantity_owned += remaining_quantity;
+                        await userStock.save();
+                    }
+                    
+                    return true;
+                }
             }
         }
-
-        console.log("fifth breakpoint");
-
-        // update the stock transaction in Stock_Tx DB
-        const stockTx = await Stock_Tx.findById(orderData.stock_tx_id);
-
-        console.log("sixth breakpoint");
         
-        stockTx.order_status = 'CANCELLED';
-        await stockTx.save();
-
-        const userStock = await User_Stocks.findOne({ user_id: orderData.user_id, stock_id: orderData.stock_id });
-        if (!userStock) {
-            const newUserStock = new User_Stocks({
-                user_id: orderData.user_id,
-                stock_name: orderData.stock_name,
-                stock_id: orderData.stock_id,
-                quantity_owned: remaining_quantity
-            });
-
-            await newUserStock.save();
-        } else {
-            userStock.quantity_owned += remaining_quantity;
-            await userStock.save();
-        }
-
-        console.log("seventh breakpoint");
-
-        return true;
+        return false;
     }
 
     validateOrder(order) {
@@ -479,7 +507,8 @@ class OrderBook {
             timestamp: Date.now()
         };
 
-        this.trades.push(trade);
+        // Add trade to Redis
+        await redis.rpush(this.getTradesKey(), JSON.stringify(trade));
 
         try {
             console.log("Stock transaction push kr rhe h ");
@@ -512,7 +541,6 @@ class OrderBook {
                 wallet_tx_id: null
             });
             await buyOrderStockTx.save();
-
 
             var buyUserStock = await User_Stocks.findOne({ user_id: buyOrder.user_id, stock_id: buyOrder.stock_id });
             if (buyUserStock) {
@@ -559,12 +587,9 @@ class OrderBook {
             console.error('Error executing trade:', error);
         }
 
-
         return trade;
     }
 }
-
-const orderBook = new OrderBook();
 
 async function startConsumer() {
     const connection = await amqp.connect(RABBITMQ_URL);
@@ -572,9 +597,10 @@ async function startConsumer() {
     await channel.assertQueue('buy_orders', { durable: true });
     await channel.assertQueue('sell_orders', { durable: true });
     await channel.assertQueue('cancel_orders', { durable: true });
-    // await channel.assertQueue('stock_transactions', { durable: true });
 
     console.log('Waiting for orders...');
+    
+    const orderBook = new OrderBook();
 
     channel.consume('buy_orders', async (message) => {
         if (message) {
@@ -590,8 +616,8 @@ async function startConsumer() {
                 );
                 console.log('Processing buy order:', order);
 
-                channel.ack(message);
                 await orderBook.addBuyOrder(order);
+                channel.ack(message);
             } catch (error) {
                 console.error('Error processing buy order:', error);
                 channel.nack(message);
@@ -614,7 +640,7 @@ async function startConsumer() {
                 );
                 console.log('Processing sell order:', order);
 
-                orderBook.addSellOrder(order);
+                await orderBook.addSellOrder(order);
                 channel.ack(message);
             } catch (error) {
                 console.error('Error processing sell order:', error);
@@ -629,7 +655,7 @@ async function startConsumer() {
                 const orderData = JSON.parse(message.content.toString());
                 console.log('Processing cancel order:', orderData);
 
-                orderBook.cancelOrder(orderData);
+                await orderBook.cancelOrder(orderData);
                 channel.ack(message);
             } catch (error) {
                 console.error('Error processing cancel order:', error);
