@@ -6,6 +6,14 @@ services:
       - "27017:27017"
     networks:
       - inter-service-network
+
+  redis:
+    image: redis
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - inter-service-network
     
   rabbitmq:
     image: rabbitmq
