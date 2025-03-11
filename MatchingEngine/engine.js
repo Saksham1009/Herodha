@@ -1,5 +1,6 @@
 require('dotenv').config();
 const amqp = require('amqplib');
+const redis = require('redis');
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://rabbitmq';
 const connectToDB = require('./config/dbConnect');
 const Stock_Tx = require('./model/Stock_Tx');
@@ -13,31 +14,76 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
+//initialize redis
+const redisClient = redis.createClient({
+   url: 'redis://redis:6379'
+});
+redisClient.on('error', (err) => console.error('Redis Client Error', err));
+(async () => {
+  await redisClient.connect();
+  console.log('Connected to Redis');
+})();
+
+//need to add caching to these endpoints
 app.get('/engine/getAvailableStocks', async (req, res) => {
     let { stock_id } = req.query;
-
+    const cacheKey = `available_stocks:${stock_id}`;
 
     console.log("Stock ID" + req.query);
 
-    try {
-        let stocks = [];
-        const stockList = orderBook.stockOrderBooks.get(stock_id);
-        stocks = stockList.getAllOrders();
-        if (!stockList || stockList.isEmpty()) {
-            return;
-        }
+    // try {
+    //     let stocks = [];
+    //     const stockList = orderBook.stockOrderBooks.get(stock_id);
+    //     stocks = stockList.getAllOrders();
+    //     if (!stockList || stockList.isEmpty()) {
+    //         return;
+    //     }
 
-        return res.status(200).json({
+    //     return res.status(200).json({
+    //         success: true,
+    //         data: stocks
+    //     });
+    // } catch (error) {
+    //     console.error('Error fetching available stocks:', error);
+    //     return res.status(500).json({
+    //         success: false,
+    //         message: error.message
+    //     });
+    // }
+
+    try {
+        const cachedData = await redisClient.get(cacheKey);
+        if (cachedData) {
+          console.log("Returning cached available stocks for key:", cacheKey);
+          return res.status(200).json({
             success: true,
-            data: stocks
+            data: JSON.parse(cachedData)
+          });
+        }
+    
+        const stockList = orderBook.stockOrderBooks.get(stock_id);
+        if (!stockList || stockList.isEmpty()) {
+          return res.status(404).json({
+            success: false,
+            message: 'No orders found for this stock'
+          });
+        }
+        const stocks = stockList.getAllOrders();
+    
+        // Cache the result with a TTL of 5 seconds
+        await redisClient.set(cacheKey, JSON.stringify(stocks), { EX: 5 });
+        return res.status(200).json({
+          success: true,
+          data: stocks
         });
-    } catch (error) {
+      } catch (error) {
         console.error('Error fetching available stocks:', error);
         return res.status(500).json({
-            success: false,
-            message: error.message
+          success: false,
+          message: error.message
         });
-    }
+      }
+
 });
 
 app.post('/engine/addBuyOrder', async (req, res) => {
@@ -90,62 +136,116 @@ app.post('/engine/cancelOrder', async (req, res) => {
     }
 });
 
-app.get('/engine/getPrice', (req, res) => {
+app.get('/engine/getPrice', async (req, res) => {
     console.log("Received request with query params:", req.query);
     let { stock_id } = req.query;
+    const cacheKey = stock_id ? `best_price:${stock_id}` : 'best_prices:all';
 
+    // try {
+    //     if (!stock_id) {
+    //         console.log("Yaha aa gaye");
+    //         const bestPrices = [];
+    //         console.log("This is the orderBook" + orderBook.stockOrderBooks);
+    //         orderBook.stockOrderBooks.forEach(item => {
+    //             const price = item.peek();
+    //             const order = item.getOrdersAtPrice(price)[0];
+    //             console.log("This is the order" + order.stock_id);
+    //             console.log("This is the price" + price);
+    //             bestPrices.push({
+    //                 "stock_id": order.stock_id,
+    //                 "best_price": price
+    //             });
+    //         });
+    //         console.log("This is the best prices" + bestPrices);
+    //         return res.status(200).json({
+    //             success: true,
+    //             data: bestPrices
+    //         });
+    //     } else {
+    //         console.log("vaha a a gaaya");
+    //         const stockBook = orderBook.stockOrderBooks.get(stock_id);
+    //         console.log("This is the best price" + stockBook);
+    //         if (!stockBook || stockBook.isEmpty()) {
+    //             console.log("kya hum yaha aa gaue");
+    //             return res.status(404).json({
+    //                 success: false,
+    //                 message: 'No sell orders found for this stock'
+    //             });
+    //         } else {
+    //             console.log("Inside aa gaye");
+    //             const price = stockBook.peek();
+    //             console.log("This is the price" + price);
+    //             const order = stockBook.getOrdersAtPrice(price)[0];
+    //             console.log("This is the order" + order.stock_id);
+    //             return res.status(200).json({
+    //                 success: true,
+    //                 data: {
+    //                     stock_id: order.stock_id,
+    //                     best_price: price
+    //                 }
+    //             });
+    //         }
+    //     }
+    // } catch (error) {
+    //     console.error('Error fetching best price:', error);
+    //     return res.status(500).json({
+    //         success: false,
+    //         message: error.message
+    //     });
+    // }
     try {
-        if (!stock_id) {
-            console.log("Yaha aa gaye");
-            const bestPrices = [];
-            console.log("This is the orderBook" + orderBook.stockOrderBooks);
-            orderBook.stockOrderBooks.forEach(item => {
-                const price = item.peek();
-                const order = item.getOrdersAtPrice(price)[0];
-                console.log("This is the order" + order.stock_id);
-                console.log("This is the price" + price);
-                bestPrices.push({
-                    "stock_id": order.stock_id,
-                    "best_price": price
-                });
-            });
-            console.log("This is the best prices" + bestPrices);
-            return res.status(200).json({
-                success: true,
-                data: bestPrices
-            });
-        } else {
-            console.log("vaha a a gaaya");
-            const stockBook = orderBook.stockOrderBooks.get(stock_id);
-            console.log("This is the best price" + stockBook);
-            if (!stockBook || stockBook.isEmpty()) {
-                console.log("kya hum yaha aa gaue");
-                return res.status(404).json({
-                    success: false,
-                    message: 'No sell orders found for this stock'
-                });
-            } else {
-                console.log("Inside aa gaye");
-                const price = stockBook.peek();
-                console.log("This is the price" + price);
-                const order = stockBook.getOrdersAtPrice(price)[0];
-                console.log("This is the order" + order.stock_id);
-                return res.status(200).json({
-                    success: true,
-                    data: {
-                        stock_id: order.stock_id,
-                        best_price: price
-                    }
-                });
-            }
+        const cachedData = await redisClient.get(cacheKey);
+        if (cachedData) {
+          console.log("Returning cached data for key:", cacheKey);
+          return res.status(200).json({
+            success: true,
+            data: JSON.parse(cachedData)
+          });
         }
-    } catch (error) {
+    
+        let data;
+        if (!stock_id) {
+          const bestPrices = [];
+          orderBook.stockOrderBooks.forEach(item => {
+            const price = item.peek();
+            if (price !== undefined) {
+              const order = item.getOrdersAtPrice(price)[0];
+              bestPrices.push({
+                stock_id: order.stock_id,
+                best_price: price
+              });
+            }
+          });
+          data = bestPrices;
+        } else {
+          const stockBook = orderBook.stockOrderBooks.get(stock_id);
+          if (!stockBook || stockBook.isEmpty()) {
+            return res.status(404).json({
+              success: false,
+              message: 'No sell orders found for this stock'
+            });
+          }
+          const price = stockBook.peek();
+          const order = stockBook.getOrdersAtPrice(price)[0];
+          data = {
+            stock_id: order.stock_id,
+            best_price: price
+          };
+        }
+        // Cache computed result with TTL of 5 seconds
+        await redisClient.set(cacheKey, JSON.stringify(data), { EX: 5 });
+        return res.status(200).json({
+          success: true,
+          data: data
+        });
+      } catch (error) {
         console.error('Error fetching best price:', error);
         return res.status(500).json({
-            success: false,
-            message: error.message
+          success: false,
+          message: error.message
         });
-    }
+      }
+
 });
 
 connectToDB();
@@ -312,6 +412,12 @@ class OrderBook {
         }
     }
 
+    //cache invalidation helper function
+    async invalidateCache(stock_id) {
+        await redisClient.del(`best_price:${stock_id}`);
+        await redisClient.del(`available_stocks:${stock_id}`)
+    }
+
     async addBuyOrder(order) {
         this.validateOrder(order);
 
@@ -368,7 +474,8 @@ class OrderBook {
 
             console.log("Here");
         }
-
+        // Invalidate cache after processing buy order
+        await this.invalidateCache(order.stock_id);
         return;
     }
 
@@ -379,6 +486,8 @@ class OrderBook {
         orderBook.enqueue(order.price, order);
         // this.orderIndex.set(order.stock_id + '_' + order.user_id, order);
 
+        // Invalidate cache after processing sell order
+        this.invalidateCache(order.stock_id);
         return true;
     }
 
@@ -386,8 +495,6 @@ class OrderBook {
         // const orderId = orderData.stock_id + '_' + orderData.user_id;
         // const order = this.orderIndex.get(orderId);
         console.log("first breakpoint");
-        // console.log("this is the order" + order);
-
         // Remove from order book
         const orderBook = this.getStockOrderBookIfExists(orderData.stock_id);
         if (!orderBook) {
@@ -446,6 +553,8 @@ class OrderBook {
 
         console.log("seventh breakpoint");
 
+        // Invalidate cache after processing cancel order
+        await this.invalidateCache(orderData.stock_id);
         return true;
     }
 
@@ -559,7 +668,8 @@ class OrderBook {
             console.error('Error executing trade:', error);
         }
 
-
+        //invalidate cache after processing trade
+        await this.invalidateCache(buyOrder.stock_id);
         return trade;
     }
 }

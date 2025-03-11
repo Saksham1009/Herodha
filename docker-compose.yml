@@ -26,6 +26,13 @@ services:
       retries: 5
       start_period: 5s
       timeout: 15s
+  redis:
+    image: redis
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - inter-service-network
           
   herodha_client:
     build:
