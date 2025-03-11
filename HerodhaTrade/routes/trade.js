@@ -43,7 +43,7 @@ async function sendOrderToQueue(order, bestPrice) {
         console.error('RabbitMQ channel is not initialized yet.');
         return;
     }
-    
+
     if (order.is_buy && order.order_type === 'MARKET') {
         const allStocks = await axios.get('http://matching_engine:3004/engine/getAvailableStocks', {
             params: {
@@ -63,8 +63,11 @@ async function sendOrderToQueue(order, bestPrice) {
         const user = await User.findById(order.user_id);
         user.balance -= (order.quantity * bestPrice);
         await user.save();
-        
+
         channel.sendToQueue('buy_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
+        // axios.post('http://matching_engine:3004/engine/addBuyOrder', {
+        //     order: order
+        // });
     } else {
         // deduct stock from user
         const userStock = await User_Stocks.findOne({ user_id: order.user_id, stock_id: order.stock_id });
@@ -89,12 +92,19 @@ async function sendOrderToQueue(order, bestPrice) {
         await stockTx.save();
         order.stock_tx_id = stockTx._id.toString();
         channel.sendToQueue('sell_orders', Buffer.from(JSON.stringify(order)), { persistent: true });
+        //axios.post('http://matching_engine:3004/engine/addSellOrder', {
+        //     order: order
+        // });
     }
     console.log(`Order sent: ${JSON.stringify(order)}`);
 }
 
 async function sendCancelOrderToQueue(order) {
     try {
+        // axios.post('http://matching_engine:3004/engine/cancelOrder', {
+        //     order: order
+        // });
+
         channel.sendToQueue(
             'cancel_orders',
             Buffer.from(JSON.stringify(order)),
@@ -107,10 +117,10 @@ async function sendCancelOrderToQueue(order) {
 }
 
 // TODO: Figure out how we can get the lowest sell price for any stock from the matching engine
-router.get('/transaction/getStockPrices', async (req, res) => { 
+router.get('/transaction/getStockPrices', async (req, res) => {
     try {
         // Fetch prices from the matching engine
-        const stockPrices = await axios.get('http://matching_engine:3004/engine/getPrice'); 
+        const stockPrices = await axios.get('http://matching_engine:3004/engine/getPrice');
         // Merge the stock prices with the stock data
         const stockDataPromises = stockPrices.data.data.map(async (element) => {
             const stockDataWithPrices = await Stock.findById(element.stock_id);
@@ -158,7 +168,7 @@ router.post('/engine/placeStockOrder', async (req, res) => {
     }
 
     if (is_buy && order_type === 'MARKET' && price) {
-        return res.status(400).json({ "success": false, "data": { "error" : 'Price should not be provided for market orders' }});
+        return res.status(400).json({ "success": false, "data": { "error": 'Price should not be provided for market orders' } });
     }
 
     try {
@@ -191,9 +201,9 @@ router.post('/engine/placeStockOrder', async (req, res) => {
             bestPrice = bestPrice.data.data.best_price;
             console.log("this is the best price" + bestPrice);
             if (user.balance < bestPrice * quantity) {
-                return res.status(400).json({ "success": false, "data": { "error" : 'Insufficient funds' }});
+                return res.status(400).json({ "success": false, "data": { "error": 'Insufficient funds' } });
             } else if (price) {
-                return res.status(400).json({ "success": false, "data": { "error" : 'Price should not be provided for market orders' }});
+                return res.status(400).json({ "success": false, "data": { "error": 'Price should not be provided for market orders' } });
             }
         }
 
@@ -206,7 +216,7 @@ router.post('/engine/placeStockOrder', async (req, res) => {
             price: price
         };
         await sendOrderToQueue(orderData, bestPrice);
-        
+
         return res.json({ success: true, data: null });
     } catch (err) {
         console.log("Error returned here" + err);
@@ -231,13 +241,13 @@ router.post('/engine/cancelStockTransaction', async (req, res) => {
             stock_id: transaction.stock_id,
             stock_name: stock.stock_name
         }
-        
+
         console.log("Sending cancel request for transaction:", orderData);
         sendCancelOrderToQueue(orderData);
 
         return res.json({ "success": true, "data": null });
     } catch (err) {
-        return res.status(500).json({ "success": false, "data": {"error": err.message} });
+        return res.status(500).json({ "success": false, "data": { "error": err.message } });
     }
 });
 
