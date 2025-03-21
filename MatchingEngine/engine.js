@@ -7,10 +7,13 @@ const Stock = require('./model/Stock');
 const Wallet_Tx = require('./model/Wallet_Tx');
 const User_Stocks = require('./model/User_Stocks');
 const User = require('./model/User');
+const redis = require('redis');
 
 const express = require('express');
 const app = express();
 app.use(express.json());
+
+redis.createClient({ host: 'localhost', port: 6379 });
 
 app.get('/engine/getAvailableStocks', async (req, res) => {
     let { stock_id } = req.query;

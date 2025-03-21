@@ -6,6 +6,15 @@ services:
       - "27017:27017"
     networks:
       - inter-service-network
+
+  # Redis service
+  redis:
+    image: redis:latest  # Use the official Redis image
+    container_name: redis
+    ports:
+      - "6379:6379"  # Expose Redis on port 6379
+    networks:
+      - inter-service-network # Define the network for internal communication
     
   rabbitmq:
     image: rabbitmq
