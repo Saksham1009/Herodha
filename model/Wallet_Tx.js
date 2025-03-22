@@ -1,16 +1,20 @@
 const mongoose = require('mongoose');
-const ObjectId = mongoose.Schema.Types.ObjectId;
+
 
 
 const WalletTxCollection = new mongoose.Schema({
+
+    wallet_tx_id: { 
+        type: String, 
+        required: true, 
+        unique: true 
+    },
     user_id: {
-        type: ObjectId, //references '_id' of User
-        ref: "User",
+        type: String, 
         required: true
     },
     stock_tx_id: {
-        type: ObjectId, //references '_id' of Stock_Tx
-        ref: "Stock_Tx",
+        type: String,
         required: false
     },
     is_debit: {

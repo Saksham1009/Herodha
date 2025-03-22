@@ -1,9 +1,16 @@
 const mongoose = require('mongoose');
 
 const StockCollection = new mongoose.Schema({
+
+    stock_id: {
+        type: String,
+        required: true, 
+        unique: true
+    },
+
     stock_name: {
         type: String, 
-        required: true,
+        required: true, 
         unique: true
     },
     time_stamp: { 

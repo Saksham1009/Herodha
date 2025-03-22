@@ -1,15 +1,18 @@
 const mongoose = require('mongoose');
-const ObjectIdType = mongoose.Schema.Types.ObjectId;
 
 const StockTxCollection = new mongoose.Schema({
+
+    stock_tx_id: {
+        type: String, 
+        required: true, 
+        unique: true
+    },
     stock_id: {
-        type: ObjectIdType, //references '_id' of Stock
-        ref: 'Stock',
-        required: true
+        type: String,
+        required: true, 
     },
     user_id: {
-        type: ObjectIdType, //references '_id' of User
-        ref: 'User',
+        type: String,
         required: true
     },
     quantity: {
@@ -30,9 +33,8 @@ const StockTxCollection = new mongoose.Schema({
         default: Date.now
     },
     parent_stock_tx_id: {
-        type: ObjectIdType, //references '_id' of Stock_Tx
-        ref: 'Stock_Tx',
-        required: false
+        type: String,
+        default: null
     },
     order_status: {
         type: String,
@@ -40,9 +42,8 @@ const StockTxCollection = new mongoose.Schema({
         required: true
     },
     wallet_tx_id: {
-        type: ObjectIdType, //references '_id' of Wallet_Tx
-        ref: 'Wallet_Tx',
-        required: false
+        type: String, 
+        default: null
     },
     order_type: {
         type: String,

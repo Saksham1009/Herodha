@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require("uuid");
 
 const UserCollection = new mongoose.Schema({
+
+    user_id: { 
+        type: String, 
+        unique: true, 
+        default: uuidv4 
+    },
     user_name: {
         type: String,
         required: true,
