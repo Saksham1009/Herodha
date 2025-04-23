@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
 
         const response = userWalletTx.map(walletTx => {
             return new WalletTxResponse(
-                walletTx._id,
+                walletTx._id.toString(),
                 walletTx.stock_tx_id,
                 walletTx.is_debit,
                 walletTx.amount,

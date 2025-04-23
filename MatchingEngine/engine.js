@@ -470,6 +470,8 @@ class OrderBook {
         }
         return trade;
     }
+
+    
 }
 
 const orderBook = new OrderBook();
